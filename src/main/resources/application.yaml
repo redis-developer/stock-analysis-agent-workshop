@@ -1,0 +1,22 @@
+spring:
+  application:
+    name: stock-analysis-agent
+  ai:
+    openai:
+      api-key: ${OPENAI_API_KEY:${SPRING_AI_OPENAI_API_KEY:}}
+    model:
+      chat: openai
+      embedding: none
+      image: none
+      moderation: none
+      audio:
+        speech: none
+        transcription: none
+
+stock-analysis:
+  market-data:
+    provider: mock
+
+app:
+  cli:
+    enabled: true
