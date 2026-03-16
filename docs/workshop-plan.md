@@ -33,7 +33,7 @@ Build a stock-analysis multi-agent orchestration application with Spring AI wher
   - Spring AI starter switched to direct OpenAI
   - Twelve Data market-data provider and normalization tests
   - SEC fundamentals provider, fundamentals agent, and normalization tests
-  - SEC news provider, news agent, and normalization tests
+  - Hybrid news agent with SEC signals, Tavily web search, and normalization tests
 - In progress
   - Additional agents milestone
 - Next up
@@ -79,12 +79,13 @@ If a milestone cannot be verified through all three, it is not done.
 - `agent/marketdataagent/MarketDataResult` holds the market-agent result.
 - `agent/fundamentalsagent/FundamentalsAgent` executes the deterministic fundamentals step.
 - `agent/fundamentalsagent/FundamentalsResult` holds the fundamentals-agent result.
-- `agent/newsagent/NewsAgent` executes the deterministic recent-events step.
+- `agent/newsagent/NewsAgent` executes the hybrid recent-events and web-news step.
 - `agent/newsagent/NewsResult` holds the news-agent result.
 - `marketdata/MockMarketDataProvider` is the current development provider.
 - `marketdata/twelvedata/TwelveDataMarketDataProvider` replaces the mock provider without changing the orchestration layer.
 - `fundamentals/sec/SecFundamentalsProvider` resolves ticker-to-CIK and normalizes SEC company facts into the fundamentals contract.
-- `news/sec/SecNewsProvider` resolves ticker-to-CIK and normalizes recent SEC filings into a recent-events/news contract.
+- `news/sec/SecNewsProvider` resolves ticker-to-CIK and normalizes recent SEC filings into official company-event signals.
+- `news/tavily/TavilyNewsProvider` enriches the news snapshot with investor-relevant web coverage when a Tavily key is configured.
 - local secrets and per-machine settings can live in an optional git-ignored `application-local.properties` file at the repository root.
 - `agent/synthesisagent/SynthesisAgent` currently acts as a lightweight placeholder so the first slice can finish end to end.
 - once fundamentals, news, and technical analysis are real, `agent/synthesisagent/SynthesisAgent` should be promoted into a true LLM-backed synthesis agent that consumes structured outputs from the specialized agents.
@@ -108,7 +109,7 @@ This keeps the workshop centered on agents rather than on a generic `analysis` p
 
 1. Implement the technical analysis agent.
 2. Promote `SynthesisAgent` from a placeholder formatter into a true LLM-backed agent once multiple analysis agents are available.
-3. Refine the coordinator prompt and routing decision shape now that market, fundamentals, and news are all real.
+3. Refine the coordinator prompt and routing decision shape now that market, fundamentals, and hybrid news are all real.
 
 ## Deferred Scope
 

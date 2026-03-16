@@ -1,3 +1,4 @@
 spring.ai.openai.api-key=YOUR_OPENAI_KEY
 stock-analysis.market-data.twelve-data.api-key=YOUR_TWELVE_DATA_API_KEY
+stock-analysis.news.tavily.api-key=YOUR_TAVILY_API_KEY
 stock-analysis.sec.user-agent=stock-analysis-agent your-email@example.com

@@ -209,26 +209,29 @@ Once multiple specialized agents are implemented, `SynthesisAgent` should stop b
 
 ### Objective
 
-Introduce a deterministic news path that captures recent company-event signals without depending on a fragile third-party news quota.
+Introduce a hybrid news path that keeps official company-event signals while also searching the web for investor-relevant coverage.
 
 ### What Learners Build
 
 1. A `NewsSnapshot` and `NewsItem` contract under `agent/newsagent`.
-2. A `NewsAgent` that plugs into the existing orchestration flow.
+2. A `NewsAgent` that plugs into the existing orchestration flow and merges multiple sources.
 3. A deterministic SEC-backed provider under `news/sec`.
-4. SEC submissions parsing that turns recent filings into structured recent-event items.
-5. CLI and API output that surface recent event/news items when `NEWS` is selected.
-6. A direct-answer path for news-only questions.
-7. Provider normalization tests and an integration test for the news path.
+4. A Tavily-backed provider under `news/tavily`.
+5. SEC submissions parsing that turns recent filings into structured official-signal items.
+6. Tavily web search that turns search results into investor-relevant web-news items.
+7. CLI and API output that surface both official signals and web news when `NEWS` is selected.
+8. A direct-answer path for news-only questions.
+9. Provider normalization tests and an integration test for the news path.
 
 ### Acceptance Criteria
 
 - the news path resolves ticker-to-CIK through SEC ticker data
 - recent SEC filings are normalized into a stable news snapshot
+- Tavily results can enrich the news snapshot when a key is configured
 - the coordinator can execute `NEWS` without changing its contract
 - the response includes a news snapshot when available
 - a news-only question can return a direct answer
-- tests cover SEC filing normalization and the API happy path for news
+- tests cover SEC filing normalization, Tavily result normalization, and the API happy path for news
 
 ### Manual Smoke Test
 
@@ -244,12 +247,12 @@ Expected result:
 
 - `Selected agents` contains `NEWS`
 - a news snapshot is printed in the CLI
-- `Source` is `sec`
-- the final answer references recent company-event signals
+- `Source` is `sec` without Tavily or `sec+tavily` with Tavily configured
+- the final answer references investor-relevant news and, when available, official SEC signals
 
 ### Teaching Point
 
-For this workshop slice, the news agent is deliberately narrower than a full macro/newswire agent. It treats recent SEC filings as deterministic company-event signals so learners can keep the orchestration pattern clean and free before deciding whether to add a broader commercial news provider later.
+For this workshop slice, the news agent is deliberately hybrid. It keeps SEC filings for official company-event signals and uses Tavily web search for broader investor-relevant coverage. That lets learners see how to mix deterministic official data with a search service without giving up orchestration control.
 
 ## Authoring Rule
 

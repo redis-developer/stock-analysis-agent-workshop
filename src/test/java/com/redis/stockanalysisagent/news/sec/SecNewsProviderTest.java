@@ -58,14 +58,16 @@ class SecNewsProviderTest {
         assertThat(snapshot.ticker()).isEqualTo("AAPL");
         assertThat(snapshot.companyName()).isEqualTo("Apple Inc.");
         assertThat(snapshot.source()).isEqualTo("sec");
-        assertThat(snapshot.items()).hasSize(2);
-        assertThat(snapshot.items().get(0).form()).isEqualTo("8-K");
-        assertThat(snapshot.items().get(0).publishedAt()).isEqualTo(LocalDate.parse("2026-03-15"));
-        assertThat(snapshot.items().get(0).title()).isEqualTo("Current Report");
-        assertThat(snapshot.items().get(0).summary()).contains("8-K items");
-        assertThat(snapshot.items().get(0).url())
+        assertThat(snapshot.officialItems()).hasSize(2);
+        assertThat(snapshot.webItems()).isEmpty();
+        assertThat(snapshot.officialItems().get(0).publisher()).isEqualTo("SEC");
+        assertThat(snapshot.officialItems().get(0).label()).isEqualTo("8-K");
+        assertThat(snapshot.officialItems().get(0).publishedAt()).isEqualTo(LocalDate.parse("2026-03-15"));
+        assertThat(snapshot.officialItems().get(0).title()).isEqualTo("Current Report");
+        assertThat(snapshot.officialItems().get(0).summary()).contains("8-K items");
+        assertThat(snapshot.officialItems().get(0).url())
                 .isEqualTo("https://www.sec.gov/Archives/edgar/data/320193/000032019326000010/a8-k20260315.htm");
-        assertThat(snapshot.items().get(1).form()).isEqualTo("10-Q");
+        assertThat(snapshot.officialItems().get(1).label()).isEqualTo("10-Q");
 
         server.verify();
     }

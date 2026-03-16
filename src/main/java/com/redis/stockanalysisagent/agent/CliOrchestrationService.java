@@ -95,15 +95,28 @@ public class CliOrchestrationService {
             System.out.println();
             System.out.println("News snapshot");
             System.out.println("Company: " + response.newsSnapshot().companyName());
-            response.newsSnapshot().items().stream()
+            if (!response.newsSnapshot().officialItems().isEmpty()) {
+                System.out.println("Official signals");
+                response.newsSnapshot().officialItems().stream()
+                        .limit(3)
+                        .forEach(item -> System.out.println("- " + formatDate(item.publishedAt())
+                                + " | " + item.label()
+                                + " | " + item.title()));
+            }
+            if (!response.newsSnapshot().webItems().isEmpty()) {
+                System.out.println("Web news");
+                response.newsSnapshot().webItems().stream()
                     .limit(3)
-                    .forEach(item -> System.out.println("- " + item.publishedAt()
-                            + " | " + item.form()
+                    .forEach(item -> System.out.println("- " + item.publisher()
                             + " | " + item.title()));
+            }
+            if (response.newsSnapshot().webSummary() != null && !response.newsSnapshot().webSummary().isBlank()) {
+                System.out.println("Web summary: " + response.newsSnapshot().webSummary());
+            }
             System.out.println("Source: " + response.newsSnapshot().source());
         }
         System.out.println();
-
+        
         System.out.println("Stage 3/3: Final Answer");
         System.out.println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
         System.out.println(response.answer());
@@ -166,5 +179,13 @@ public class CliOrchestrationService {
 
         BigDecimal billions = value.divide(BigDecimal.valueOf(1_000_000_000L), 2, RoundingMode.HALF_UP);
         return "$" + billions + "B";
+    }
+
+    private String formatDate(java.time.LocalDate value) {
+        if (value == null) {
+            return "date unavailable";
+        }
+
+        return value.toString();
     }
 }

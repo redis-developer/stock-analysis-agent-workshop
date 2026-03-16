@@ -95,12 +95,12 @@ public class AgentOrchestrationService {
         }
 
         if (executionPlan.selectedAgents().contains(AgentType.NEWS)) {
-            NewsResult newsResult = newsAgent.execute(request.ticker());
+            NewsResult newsResult = newsAgent.execute(request.ticker(), request.question());
             newsSnapshot = newsResult.getFinalResponse();
             agentExecutions.add(new AgentExecution(
                     AgentType.NEWS,
                     AgentExecutionStatus.COMPLETED,
-                    "News Agent collected recent company-event signals from recent SEC filings."
+                    "News Agent collected recent company-event signals and web news relevant to the requested ticker."
             ));
         }
 

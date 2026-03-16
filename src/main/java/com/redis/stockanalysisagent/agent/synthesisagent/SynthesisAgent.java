@@ -52,11 +52,11 @@ public class SynthesisAgent {
             FundamentalsSnapshot fundamentalsSnapshot,
             NewsSnapshot newsSnapshot
     ) {
-        if (marketSnapshot != null && fundamentalsSnapshot != null && newsSnapshot != null && !newsSnapshot.items().isEmpty()) {
+        if (marketSnapshot != null && fundamentalsSnapshot != null && newsSnapshot != null && hasNews(newsSnapshot)) {
             return """
                     Based on the currently implemented agents, %s is trading at $%s (%s%% vs. previous close).
                     %s reported revenue of %s with revenue growth of %s and net margin of %s.
-                    Recent SEC event signals include %s on %s.
+                    Recent news signals include %s.
                     The coordinator selected %s for the question "%s".
                     """.formatted(
                     marketSnapshot.symbol(),
@@ -66,8 +66,7 @@ public class SynthesisAgent {
                     formatMoney(fundamentalsSnapshot.revenue()),
                     formatPercent(fundamentalsSnapshot.revenueGrowthPercent()),
                     formatPercent(fundamentalsSnapshot.netMarginPercent()),
-                    newsSnapshot.items().getFirst().title(),
-                    newsSnapshot.items().getFirst().publishedAt(),
+                    newsHighlight(newsSnapshot),
                     executionPlan.selectedAgents(),
                     request.question()
             ).replace('\n', ' ').trim();
@@ -120,16 +119,13 @@ public class SynthesisAgent {
             ).replace('\n', ' ').trim();
         }
 
-        if (newsSnapshot != null && !newsSnapshot.items().isEmpty()) {
+        if (newsSnapshot != null && hasNews(newsSnapshot)) {
             return """
-                    Recent company-event signals for %s include %s filed on %s and %s filed on %s.
+                    Recent news signals for %s include %s.
                     The coordinator selected %s for the question "%s".
                     """.formatted(
                     newsSnapshot.companyName(),
-                    newsSnapshot.items().get(0).form(),
-                    newsSnapshot.items().get(0).publishedAt(),
-                    newsSnapshot.items().size() > 1 ? newsSnapshot.items().get(1).form() : newsSnapshot.items().get(0).form(),
-                    newsSnapshot.items().size() > 1 ? newsSnapshot.items().get(1).publishedAt() : newsSnapshot.items().get(0).publishedAt(),
+                    newsHighlight(newsSnapshot),
                     executionPlan.selectedAgents(),
                     request.question()
             ).replace('\n', ' ').trim();
@@ -159,5 +155,31 @@ public class SynthesisAgent {
         }
 
         return value.setScale(2, RoundingMode.HALF_UP) + "%";
+    }
+
+    private boolean hasNews(NewsSnapshot newsSnapshot) {
+        return !newsSnapshot.webItems().isEmpty() || !newsSnapshot.officialItems().isEmpty();
+    }
+
+    private String newsHighlight(NewsSnapshot newsSnapshot) {
+        if (!newsSnapshot.webItems().isEmpty()) {
+            String firstTitle = newsSnapshot.webItems().getFirst().title();
+            String firstPublisher = newsSnapshot.webItems().getFirst().publisher();
+            if (!newsSnapshot.officialItems().isEmpty()) {
+                return "%s (%s), alongside official SEC signals such as %s on %s".formatted(
+                        firstTitle,
+                        firstPublisher,
+                        newsSnapshot.officialItems().getFirst().label(),
+                        newsSnapshot.officialItems().getFirst().publishedAt()
+                );
+            }
+
+            return "%s (%s)".formatted(firstTitle, firstPublisher);
+        }
+
+        return "%s on %s".formatted(
+                newsSnapshot.officialItems().getFirst().label(),
+                newsSnapshot.officialItems().getFirst().publishedAt()
+        );
     }
 }

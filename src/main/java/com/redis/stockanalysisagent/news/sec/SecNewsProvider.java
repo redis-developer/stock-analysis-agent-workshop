@@ -69,12 +69,15 @@ public class SecNewsProvider implements NewsProvider {
                         .limit(5)
                         .map(filing -> new NewsItem(
                                 filing.filedAt(),
+                                "SEC",
                                 filing.form(),
                                 filing.title(),
                                 filing.summary(),
                                 filing.url()
                         ))
                         .toList(),
+                List.of(),
+                null,
                 "sec"
         );
     }

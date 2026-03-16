@@ -22,10 +22,10 @@ Build a predictable orchestration system where:
 
 - market data: Twelve Data
 - fundamentals: SEC EDGAR / XBRL
-- news: recent SEC filings as company-event signals
+- news: hybrid SEC filings plus Tavily web search
 - current runtime default: Twelve Data
 - current fundamentals default: SEC
-- current news default: SEC
+- current news default: SEC plus optional Tavily enrichment
 - test profile default: mock market data provider
 
 If you want to force mock market data locally, use:
@@ -50,6 +50,7 @@ Create `application-local.properties` and add values like:
 ```properties
 spring.ai.openai.api-key=YOUR_OPENAI_KEY
 stock-analysis.market-data.twelve-data.api-key=YOUR_TWELVE_DATA_API_KEY
+stock-analysis.news.tavily.api-key=YOUR_TAVILY_API_KEY
 stock-analysis.sec.user-agent=stock-analysis-agent your-email@example.com
 ```
 
@@ -124,7 +125,7 @@ Then ask:
 
 The CLI should execute `FUNDAMENTALS` and print a fundamentals snapshot with `Source: sec`.
 
-To run a news-focused question backed by recent SEC filings:
+To run a news-focused question with official SEC signals and optional Tavily web search:
 
 ```bash
 ./gradlew bootRun
@@ -135,7 +136,8 @@ Then ask:
 - `What recent news should I know about Apple?`
 
 The CLI should execute `NEWS` and print a recent filing snapshot with `Source: sec`.
-For this workshop slice, the news agent is intentionally company-event focused: it uses recent SEC filings as deterministic signals rather than a general macro/newswire feed.
+If a Tavily key is configured, the CLI should also print a `Web news` section and the source should become `sec+tavily`.
+This hybrid setup keeps official SEC disclosures while adding broader investor-relevant web coverage.
 
 `OPENAI_API_KEY` is the preferred env var for this repo. `SPRING_AI_OPENAI_API_KEY` also works.
 Environment variables still work, but `application-local.properties` is the simplest local setup.

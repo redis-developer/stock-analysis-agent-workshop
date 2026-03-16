@@ -10,6 +10,8 @@ import com.redis.stockanalysisagent.agent.newsagent.NewsItem;
 import com.redis.stockanalysisagent.agent.newsagent.NewsSnapshot;
 import com.redis.stockanalysisagent.fundamentals.FundamentalsProvider;
 import com.redis.stockanalysisagent.news.NewsProvider;
+import com.redis.stockanalysisagent.news.tavily.TavilyNewsProvider;
+import com.redis.stockanalysisagent.news.tavily.TavilyNewsSearchResult;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
@@ -65,7 +67,8 @@ class AnalysisControllerIntegrationTest {
         assertThat(response.fundamentalsSnapshot()).isNotNull();
         assertThat(response.fundamentalsSnapshot().source()).isEqualTo("test-sec");
         assertThat(response.newsSnapshot()).isNotNull();
-        assertThat(response.newsSnapshot().source()).isEqualTo("test-sec-news");
+        assertThat(response.newsSnapshot().source()).isEqualTo("test-sec-news+tavily");
+        assertThat(response.newsSnapshot().webItems()).hasSize(1);
         assertThat(response.agentExecutions().get(1).status()).isEqualTo(AgentExecutionStatus.COMPLETED);
         assertThat(response.agentExecutions().get(2).status()).isEqualTo(AgentExecutionStatus.COMPLETED);
         assertThat(response.agentExecutions().get(3).status()).isEqualTo(AgentExecutionStatus.NOT_IMPLEMENTED);
@@ -98,7 +101,7 @@ class AnalysisControllerIntegrationTest {
         assertThat(response.executionPlan().requiresSynthesis()).isFalse();
         assertThat(response.executionPlan().selectedAgents()).containsExactly(AgentType.NEWS);
         assertThat(response.newsSnapshot()).isNotNull();
-        assertThat(response.answer()).contains("Recent company-event signals");
+        assertThat(response.answer()).contains("Recent web coverage");
         assertThat(response.limitations()).isEmpty();
     }
 
@@ -183,6 +186,7 @@ class AnalysisControllerIntegrationTest {
                     java.util.List.of(
                             new NewsItem(
                                     LocalDate.parse("2026-03-15"),
+                                    "SEC",
                                     "8-K",
                                     "Current Report",
                                     "8-K items: 2.02,9.01",
@@ -190,14 +194,40 @@ class AnalysisControllerIntegrationTest {
                             ),
                             new NewsItem(
                                     LocalDate.parse("2026-02-01"),
+                                    "SEC",
                                     "10-Q",
                                     "Quarterly Report",
                                     "Quarterly financial filing.",
                                     "https://www.sec.gov/example-10q"
                             )
                     ),
+                    java.util.List.of(),
+                    null,
                     "test-sec-news"
             );
+        }
+
+        @Bean
+        @Primary
+        TavilyNewsProvider tavilyNewsProvider() {
+            return new TavilyNewsProvider(RestClient.builder(), new com.redis.stockanalysisagent.news.tavily.TavilyProperties()) {
+                @Override
+                public TavilyNewsSearchResult search(String ticker, String companyName, String question) {
+                    return new TavilyNewsSearchResult(
+                            java.util.List.of(
+                                    new NewsItem(
+                                            null,
+                                            "reuters.com",
+                                            "WEB",
+                                            "Apple shares rise on AI optimism",
+                                            "Investors focused on Apple's AI roadmap.",
+                                            "https://www.reuters.com/example"
+                                    )
+                            ),
+                            "Apple faces investor attention around a 5% move in AI-related sentiment."
+                    );
+                }
+            };
         }
 
         private FundamentalsSnapshot snapshot(String ticker, BigDecimal currentPrice) {
