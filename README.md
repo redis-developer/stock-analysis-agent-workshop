@@ -9,7 +9,7 @@ Build a predictable orchestration system where:
 - a client sends a stock-analysis request
 - a coordinator decides which specialized agents are relevant
 - agents fetch deterministic data from external providers
-- a synthesis step returns a grounded answer
+- a synthesis step returns a grounded final answer
 
 ## Current Direction
 
@@ -88,7 +88,7 @@ The first slice returns:
 - a technical-analysis snapshot when technical analysis is selected
 - a grounded response based on the currently implemented agents
 
-For this first slice, `SynthesisAgent` is intentionally lightweight. It acts as a placeholder so the orchestration can finish end to end, and it will be promoted into a true LLM-backed agent once multiple analysis agents are implemented.
+When multiple specialized agents are selected, `SynthesisAgent` now uses Spring AI to produce the final grounded response from the structured agent outputs. In test and no-model setups, it falls back to a deterministic synthesis so the workshop remains runnable.
 
 ## CLI Mode
 
@@ -153,6 +153,18 @@ Then ask:
 - `What do the technicals look like for Apple?`
 
 The CLI should execute `TECHNICAL_ANALYSIS` and print indicators such as `SMA(20)`, `EMA(20)`, and `RSI(14)` with `Source: twelve-data`.
+
+To run a broad multi-agent question that exercises the LLM-backed synthesis step:
+
+```bash
+./gradlew bootRun
+```
+
+Then ask:
+
+- `Give me a full view on Apple with fundamentals, news, and technical analysis`
+
+With a configured chat model, the final answer should be synthesized by the model from the structured outputs of the specialized agents.
 
 `OPENAI_API_KEY` is the preferred env var for this repo. `SPRING_AI_OPENAI_API_KEY` also works.
 Environment variables still work, but `application-local.properties` is the simplest local setup.

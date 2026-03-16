@@ -35,11 +35,12 @@ Build a stock-analysis multi-agent orchestration application with Spring AI wher
   - SEC fundamentals provider, fundamentals agent, and normalization tests
   - Hybrid news agent with SEC signals, Tavily web search, and normalization tests
   - Technical analysis agent with Twelve Data time series and indicator tests
+  - LLM-backed synthesis agent with deterministic fallback for test/no-model runs
 - In progress
   - True orchestration milestone
 - Next up
-  - promote synthesis into a true LLM-backed agent
   - refactor orchestration to feel less pipeline-like now that all specialized agents are real
+  - add safer partial-failure handling before parallel fan-out
 
 ## Milestones
 
@@ -91,8 +92,8 @@ If a milestone cannot be verified through all three, it is not done.
 - `news/tavily/TavilyNewsProvider` enriches the news snapshot with investor-relevant web coverage when a Tavily key is configured.
 - `technicalanalysis/twelvedata/TwelveDataTechnicalAnalysisProvider` retrieves time-series data and computes SMA, EMA, and RSI in Java.
 - local secrets and per-machine settings can live in an optional git-ignored `application-local.properties` file at the repository root.
-- `agent/synthesisagent/SynthesisAgent` currently acts as a lightweight placeholder so the first slice can finish end to end.
-- once fundamentals, news, and technical analysis are real, `agent/synthesisagent/SynthesisAgent` should be promoted into a true LLM-backed synthesis agent that consumes structured outputs from the specialized agents.
+- `agent/synthesisagent/SynthesisAgent` is now a true LLM-backed agent at runtime and consumes only structured outputs from the specialized agents.
+- in test and no-model runs, `agent/synthesisagent/SynthesisAgent` falls back to a deterministic synthesis path so the workshop remains runnable without credentials.
 - Integration and orchestration tests are green and provide a simple routing override for repeatable verification.
 
 ## Package Shape
@@ -111,9 +112,9 @@ This keeps the workshop centered on agents rather than on a generic `analysis` p
 
 ## Immediate Backlog
 
-1. Promote `SynthesisAgent` from a placeholder formatter into a true LLM-backed agent now that all specialized agents are available.
-2. Refine the coordinator prompt and routing decision shape now that market, fundamentals, news, and technical analysis are all real.
-3. Refactor orchestration dispatch so execution feels less like a fixed pipeline and more like dynamic coordination.
+1. Refine the coordinator prompt and routing decision shape now that market, fundamentals, news, technical analysis, and synthesis are all real.
+2. Refactor orchestration dispatch so execution feels less like a fixed pipeline and more like dynamic coordination.
+3. Add safer partial-failure handling before parallel fan-out.
 
 ## Deferred Scope
 

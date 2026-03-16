@@ -201,10 +201,6 @@ Expected result:
 - `Source` is `sec`
 - the final answer includes the normalized fundamentals result
 
-### Important Note About Synthesis
-
-Once multiple specialized agents are implemented, `SynthesisAgent` should stop being a simple formatter and become a true LLM-backed agent. At that point, it should consume only the structured outputs of agents like `MarketDataAgent`, `FundamentalsAgent`, `NewsAgent`, and `TechnicalAnalysisAgent`, and produce the final grounded narrative for the user.
-
 ## Part 4: News
 
 ### Objective
@@ -301,6 +297,50 @@ Expected result:
 ### Teaching Point
 
 This slice reinforces one of the main workshop rules: the model should not calculate market indicators. Java computes the indicators, and the orchestration layer decides when the technical-analysis agent should run.
+
+## Part 6: Synthesis
+
+### Objective
+
+Replace the placeholder final-answer formatter with a true LLM-backed synthesis agent that combines the structured outputs of the specialized agents.
+
+### What Learners Build
+
+1. A synthesis prompt focused on combining structured market, fundamentals, news, and technical signals.
+2. A runtime `ChatClient` for the synthesis agent.
+3. A compact synthesis input assembled from the typed snapshot objects.
+4. A structured synthesis response type.
+5. A deterministic fallback path for test and no-model runs.
+6. Integration and unit tests that keep the workshop reproducible without model credentials.
+
+### Acceptance Criteria
+
+- multi-agent requests route through a real synthesis agent at runtime
+- the synthesis prompt uses only structured agent outputs
+- the synthesizer does not depend on raw conversations between agents
+- the test suite still passes with `spring.ai.model.chat=none`
+- a broad multi-agent question returns one grounded final answer
+
+### Manual Smoke Test
+
+```bash
+./gradlew bootRun
+```
+
+Then enter:
+
+- `Request: Give me a full view on Apple with fundamentals, news, and technical analysis`
+
+Expected result:
+
+- multiple specialized agents execute
+- the final answer is synthesized from their outputs
+- with a configured chat model, the runtime path uses the LLM-backed synthesizer
+- without a configured chat model, the deterministic fallback still produces a coherent answer
+
+### Teaching Point
+
+This slice is where the project fully demonstrates the workshop pattern: specialized agents gather deterministic signals, and a single synthesis agent turns those structured results into the final narrative. The model interprets; it does not retrieve or calculate the underlying facts.
 
 ## Authoring Rule
 
