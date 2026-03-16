@@ -4,6 +4,9 @@ spring:
   ai:
     openai:
       api-key: ${OPENAI_API_KEY:${SPRING_AI_OPENAI_API_KEY:}}
+      chat:
+        options:
+          model: gpt-4o
     model:
       chat: openai
       embedding: none
@@ -15,7 +18,10 @@ spring:
 
 stock-analysis:
   market-data:
-    provider: mock
+    provider: alpha-vantage
+    alpha-vantage:
+      base-url: https://www.alphavantage.co
+      api-key: ${ALPHA_VANTAGE_API_KEY:}
 
 app:
   cli:

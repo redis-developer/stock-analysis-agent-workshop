@@ -31,10 +31,10 @@ Build a stock-analysis multi-agent orchestration application with Spring AI wher
   - CLI testing mode for the current slice
   - Coordinator clarification loop for incomplete CLI requests
   - Spring AI starter switched to direct OpenAI
+  - Alpha Vantage market-data provider and normalization tests
 - In progress
   - Real data integration milestone
 - Next up
-  - Alpha Vantage market data adapter
   - SEC fundamentals data objects
   - fundamentals agent
 
@@ -76,6 +76,7 @@ If a milestone cannot be verified through all three, it is not done.
 - `agent/marketdataagent/MarketDataAgent` executes the deterministic market-data step.
 - `agent/marketdataagent/MarketDataResult` holds the market-agent result.
 - `marketdata/MockMarketDataProvider` is the current development provider.
+- `marketdata/alphavantage/AlphaVantageMarketDataProvider` can replace the mock provider without changing the orchestration layer.
 - `agent/synthesisagent/SynthesisAgent` currently acts as a lightweight placeholder so the first slice can finish end to end.
 - once fundamentals, news, and technical analysis are real, `agent/synthesisagent/SynthesisAgent` should be promoted into a true LLM-backed synthesis agent that consumes structured outputs from the specialized agents.
 - Integration and orchestration tests are green and provide a simple routing override for repeatable verification.
@@ -96,14 +97,10 @@ This keeps the workshop centered on agents rather than on a generic `analysis` p
 
 ## Immediate Backlog
 
-1. Add Alpha Vantage configuration properties and a client wrapper.
-2. Implement `AlphaVantageMarketDataProvider` behind the existing market-data seam.
-3. Add normalization tests for market snapshots so provider changes remain safe.
-4. Add a CLI smoke-test recipe for coordinator clarification with configured model credentials.
-5. Define SEC fundamentals data objects and a client wrapper.
-6. Implement the fundamentals agent using SEC data plus market price when needed.
-7. Promote `SynthesisAgent` from a placeholder formatter into a true LLM-backed agent once multiple analysis agents are available.
-8. Refine the coordinator prompt and routing decision shape once the fundamentals path is real.
+1. Define SEC fundamentals data objects and a client wrapper.
+2. Implement the fundamentals agent using SEC data plus market price when needed.
+3. Promote `SynthesisAgent` from a placeholder formatter into a true LLM-backed agent once multiple analysis agents are available.
+4. Refine the coordinator prompt and routing decision shape once the fundamentals path is real.
 
 ## Deferred Scope
 

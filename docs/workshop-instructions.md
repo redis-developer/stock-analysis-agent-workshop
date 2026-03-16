@@ -65,7 +65,7 @@ CLI example:
 
 ```bash
 OPENAI_API_KEY=YOUR_OPENAI_KEY \
-SPRING_AI_OPENAI_CHAT_OPTIONS_MODEL=gpt-4o \
+STOCK_ANALYSIS_MARKET_DATA_PROVIDER=mock \
 ./gradlew bootRun
 ```
 
@@ -126,7 +126,6 @@ Replace the mock market data provider with a real Alpha Vantage integration with
 ### Planned Scope
 
 - add Alpha Vantage configuration
-- add a client wrapper under `marketdata/alphavantage`
 - implement `AlphaVantageMarketDataProvider`
 - keep `MarketDataAgent` unchanged at the orchestration level
 - add normalization tests for provider output
@@ -136,6 +135,26 @@ Replace the mock market data provider with a real Alpha Vantage integration with
 - the automated suite proves provider normalization
 - a manual request shows the same endpoint working with real market data
 - the workshop can explain that orchestration stayed stable while the provider changed and the coordinator remained LLM-routed
+
+### Manual Smoke Test
+
+```bash
+OPENAI_API_KEY=YOUR_OPENAI_KEY \
+ALPHA_VANTAGE_API_KEY=YOUR_ALPHA_VANTAGE_KEY \
+./gradlew bootRun
+```
+
+Then enter:
+
+- `Request: What's the current price?`
+- `Your answer: AAPL`
+
+Expected result:
+
+- the coordinator still resolves the request through clarification
+- `Selected agents` contains only `MARKET_DATA`
+- `Source` is `alpha-vantage`
+- the final answer uses the Alpha Vantage quote instead of the mock snapshot
 
 ## Part 3: Fundamentals
 

@@ -22,7 +22,14 @@ Build a predictable orchestration system where:
 
 - market data: Alpha Vantage
 - fundamentals: SEC EDGAR / XBRL
-- current local development default: mock market data provider
+- current runtime default: Alpha Vantage
+- test profile default: mock market data provider
+
+If you want to force mock market data locally, use:
+
+```bash
+STOCK_ANALYSIS_MARKET_DATA_PROVIDER=mock
+```
 
 ## Planning Docs
 
@@ -53,7 +60,7 @@ The first slice returns:
 
 - the execution plan
 - current agent execution status
-- a mock market snapshot
+- a market snapshot from the configured provider
 - a grounded response based on the currently implemented agents
 
 For this first slice, `SynthesisAgent` is intentionally lightweight. It acts as a placeholder so the orchestration can finish end to end, and it will be promoted into a true LLM-backed agent once multiple analysis agents are implemented.
@@ -64,7 +71,7 @@ You can also test the current slice through the CLI:
 
 ```bash
 OPENAI_API_KEY=YOUR_OPENAI_KEY \
-SPRING_AI_OPENAI_CHAT_OPTIONS_MODEL=gpt-4o \
+ALPHA_VANTAGE_API_KEY=YOUR_ALPHA_VANTAGE_KEY \
 ./gradlew bootRun
 ```
 
@@ -75,6 +82,17 @@ Example:
 
 - `What's the current price?` -> coordinator asks which ticker
 - `AAPL` -> coordinator completes the request and routes the agents
+
+If you want to run the original workshop slice with mock market data instead:
+
+```bash
+OPENAI_API_KEY=YOUR_OPENAI_KEY \
+STOCK_ANALYSIS_MARKET_DATA_PROVIDER=mock \
+./gradlew bootRun
+```
+
+When Alpha Vantage mode is active, the CLI output should show `Source: alpha-vantage`.
+When mock mode is active, it should show `Source: mock`.
 
 `OPENAI_API_KEY` is the preferred env var for this repo. `SPRING_AI_OPENAI_API_KEY` also works.
 

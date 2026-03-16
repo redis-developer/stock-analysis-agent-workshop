@@ -9,6 +9,10 @@ spring:
         speech: none
         transcription: none
 
+stock-analysis:
+  market-data:
+    provider: mock
+
 app:
   cli:
     enabled: false
