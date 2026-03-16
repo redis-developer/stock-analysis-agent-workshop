@@ -64,10 +64,15 @@ Manual smoke test with a configured chat model:
 CLI example:
 
 ```bash
-OPENAI_API_KEY=YOUR_OPENAI_KEY \
 STOCK_ANALYSIS_MARKET_DATA_PROVIDER=mock \
 ./gradlew bootRun
 ```
+
+Recommended local setup:
+
+- create `application-local.properties` from `application-local.properties.example`
+- put your OpenAI key, Alpha Vantage key, and SEC user-agent there
+- run `./gradlew bootRun`
 
 Example request:
 
@@ -139,8 +144,6 @@ Replace the mock market data provider with a real Alpha Vantage integration with
 ### Manual Smoke Test
 
 ```bash
-OPENAI_API_KEY=YOUR_OPENAI_KEY \
-ALPHA_VANTAGE_API_KEY=YOUR_ALPHA_VANTAGE_KEY \
 ./gradlew bootRun
 ```
 
@@ -162,19 +165,41 @@ Expected result:
 
 Introduce a fundamentals path based on SEC EDGAR / XBRL data and plug it into the coordinator.
 
-### Planned Scope
+### What Learners Build
 
-- SEC ticker-to-CIK lookup
-- company facts retrieval under a dedicated SEC integration package
-- normalized fundamentals result objects
-- fundamentals agent under `agent/fundamentalsagent`
-- updated synthesis flow
+1. SEC configuration for `data.sec.gov`, `company_tickers.json`, and a declared `User-Agent`.
+2. A deterministic SEC-backed provider under `fundamentals/sec`.
+3. A normalized fundamentals contract under `agent/fundamentalsagent`.
+4. A `FundamentalsAgent` that can run with or without market-price context.
+5. Orchestration wiring so `FUNDAMENTALS` executes when selected.
+6. A response shape and CLI output that surface the fundamentals snapshot.
+7. Normalization tests for SEC company facts.
 
-### Validation Goal
+### Acceptance Criteria
 
-- automated tests cover SEC response normalization and coordinator routing
-- a manual request proves the fundamentals agent participates in the orchestration plan
-- learners can compare a simple price-only request with a broader fundamentals request
+- SEC ticker lookup resolves a ticker into a CIK.
+- SEC company facts are normalized into a stable fundamentals snapshot.
+- the fundamentals path works without changing the coordinator contract
+- the fundamentals agent executes when the coordinator selects `FUNDAMENTALS`
+- the final response includes a fundamentals snapshot when available
+- tests cover SEC normalization and the API happy path for fundamentals
+
+### Manual Smoke Test
+
+```bash
+./gradlew bootRun
+```
+
+Then enter:
+
+- `Request: How do AAPL fundamentals look?`
+
+Expected result:
+
+- `Selected agents` contains `FUNDAMENTALS`
+- a fundamentals snapshot is printed in the CLI
+- `Source` is `sec`
+- the final answer includes the normalized fundamentals result
 
 ### Important Note About Synthesis
 

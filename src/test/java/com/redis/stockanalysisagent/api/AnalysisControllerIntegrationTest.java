@@ -4,6 +4,9 @@ import com.redis.stockanalysisagent.agent.AgentExecutionStatus;
 import com.redis.stockanalysisagent.agent.AgentType;
 import com.redis.stockanalysisagent.agent.coordinatoragent.CoordinatorRoutingAgent;
 import com.redis.stockanalysisagent.agent.coordinatoragent.RoutingDecision;
+import com.redis.stockanalysisagent.agent.fundamentalsagent.FundamentalsSnapshot;
+import com.redis.stockanalysisagent.agent.marketdataagent.MarketSnapshot;
+import com.redis.stockanalysisagent.fundamentals.FundamentalsProvider;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
@@ -13,6 +16,9 @@ import org.springframework.context.annotation.Primary;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.client.RestClient;
 
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.OffsetDateTime;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -53,8 +59,26 @@ class AnalysisControllerIntegrationTest {
                 AgentType.TECHNICAL_ANALYSIS,
                 AgentType.SYNTHESIS
         );
-        assertThat(response.agentExecutions().get(1).status()).isEqualTo(AgentExecutionStatus.NOT_IMPLEMENTED);
-        assertThat(response.limitations()).contains("FUNDAMENTALS is not implemented yet.");
+        assertThat(response.fundamentalsSnapshot()).isNotNull();
+        assertThat(response.fundamentalsSnapshot().source()).isEqualTo("test-sec");
+        assertThat(response.agentExecutions().get(1).status()).isEqualTo(AgentExecutionStatus.COMPLETED);
+        assertThat(response.agentExecutions().get(2).status()).isEqualTo(AgentExecutionStatus.NOT_IMPLEMENTED);
+        assertThat(response.limitations()).contains("NEWS is not implemented yet.");
+    }
+
+    @Test
+    void returnsDirectFundamentalsAnswerForFundamentalsOnlyQuestion() {
+        AnalysisResponse response = post(new AnalysisRequest(
+                "AAPL",
+                "How do Apple's fundamentals look?"
+        ));
+
+        assertThat(response).isNotNull();
+        assertThat(response.executionPlan().requiresSynthesis()).isFalse();
+        assertThat(response.executionPlan().selectedAgents()).containsExactly(AgentType.FUNDAMENTALS);
+        assertThat(response.fundamentalsSnapshot()).isNotNull();
+        assertThat(response.marketSnapshot()).isNull();
+        assertThat(response.answer()).contains("Apple Inc.");
     }
 
     private AnalysisResponse post(AnalysisRequest request) {
@@ -82,6 +106,16 @@ class AnalysisControllerIntegrationTest {
                 public RoutingDecision route(AnalysisRequest request) {
                     String question = request.question().toLowerCase();
                     if (question.contains("fundamentals") || question.contains("news") || question.contains("technical")) {
+                        if (!question.contains("news") && !question.contains("technical")) {
+                            return RoutingDecision.completed(
+                                    request.ticker(),
+                                    request.question(),
+                                    java.util.List.of(AgentType.FUNDAMENTALS),
+                                    false,
+                                    "Fundamentals-only request."
+                            );
+                        }
+
                         return RoutingDecision.of(
                                 java.util.List.of(
                                         AgentType.MARKET_DATA,
@@ -101,6 +135,38 @@ class AnalysisControllerIntegrationTest {
                     );
                 }
             };
+        }
+
+        @Bean
+        @Primary
+        FundamentalsProvider fundamentalsProvider() {
+            return (ticker, marketSnapshot) -> snapshot(ticker, marketSnapshot.map(MarketSnapshot::currentPrice).orElse(null));
+        }
+
+        private FundamentalsSnapshot snapshot(String ticker, BigDecimal currentPrice) {
+            return new FundamentalsSnapshot(
+                    ticker.toUpperCase(),
+                    "Apple Inc.",
+                    "0000320193",
+                    new BigDecimal("400000000000.00"),
+                    new BigDecimal("380000000000.00"),
+                    new BigDecimal("5.26"),
+                    new BigDecimal("100000000000.00"),
+                    new BigDecimal("120000000000.00"),
+                    new BigDecimal("30.00"),
+                    new BigDecimal("25.00"),
+                    new BigDecimal("30000000000.00"),
+                    new BigDecimal("90000000000.00"),
+                    new BigDecimal("15000000000.00"),
+                    currentPrice,
+                    currentPrice != null ? currentPrice.multiply(new BigDecimal("15000000000.00")) : null,
+                    currentPrice != null ? new BigDecimal("7.50") : null,
+                    new BigDecimal("6.50"),
+                    currentPrice != null ? new BigDecimal("30.77") : null,
+                    LocalDate.parse("2024-09-28"),
+                    LocalDate.parse("2024-11-01"),
+                    "test-sec"
+            );
         }
     }
 }

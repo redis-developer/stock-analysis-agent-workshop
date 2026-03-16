@@ -35,17 +35,17 @@ public class AlphaVantageMarketDataProvider implements MarketDataProvider {
         this.restClient = restClientBuilder
                 .baseUrl(properties.getBaseUrl().toString())
                 .build();
+    }
 
+    @Override
+    public MarketSnapshot fetchSnapshot(String ticker) {
         if (properties.getApiKey() == null || properties.getApiKey().isBlank()) {
             throw new IllegalStateException("""
                     Alpha Vantage market data is enabled, but no API key is configured.
                     Set ALPHA_VANTAGE_API_KEY or stock-analysis.market-data.alpha-vantage.api-key.
                     """.stripIndent().trim());
         }
-    }
 
-    @Override
-    public MarketSnapshot fetchSnapshot(String ticker) {
         JsonNode response = restClient.get()
                 .uri(uriBuilder -> uriBuilder
                         .path("/query")

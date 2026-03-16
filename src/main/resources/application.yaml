@@ -1,6 +1,11 @@
 spring:
   application:
     name: stock-analysis-agent
+  config:
+    import:
+      - optional:file:./application-local.properties
+      - optional:file:./application-local.yaml
+      - optional:file:./application-local.yml
   ai:
     openai:
       api-key: ${OPENAI_API_KEY:${SPRING_AI_OPENAI_API_KEY:}}
@@ -22,6 +27,12 @@ stock-analysis:
     alpha-vantage:
       base-url: https://www.alphavantage.co
       api-key: ${ALPHA_VANTAGE_API_KEY:}
+  fundamentals:
+    provider: sec
+  sec:
+    data-base-url: https://data.sec.gov
+    ticker-file-url: https://www.sec.gov/files/company_tickers.json
+    user-agent: ${SEC_USER_AGENT:stock-analysis-agent-workshop workshop@example.com}
 
 app:
   cli:

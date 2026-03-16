@@ -82,8 +82,9 @@ class AlphaVantageMarketDataProviderTest {
     @Test
     void failsFastWhenAlphaVantageIsEnabledWithoutAnApiKey() {
         RestClient.Builder restClientBuilder = RestClient.builder();
+        AlphaVantageMarketDataProvider provider = new AlphaVantageMarketDataProvider(restClientBuilder, properties(""));
 
-        assertThatThrownBy(() -> new AlphaVantageMarketDataProvider(restClientBuilder, properties("")))
+        assertThatThrownBy(() -> provider.fetchSnapshot("AAPL"))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("Alpha Vantage market data is enabled");
     }

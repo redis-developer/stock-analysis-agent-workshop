@@ -32,11 +32,12 @@ Build a stock-analysis multi-agent orchestration application with Spring AI wher
   - Coordinator clarification loop for incomplete CLI requests
   - Spring AI starter switched to direct OpenAI
   - Alpha Vantage market-data provider and normalization tests
+  - SEC fundamentals provider, fundamentals agent, and normalization tests
 - In progress
-  - Real data integration milestone
+  - Additional agents milestone
 - Next up
-  - SEC fundamentals data objects
-  - fundamentals agent
+  - news agent
+  - technical analysis agent
 
 ## Milestones
 
@@ -44,9 +45,9 @@ Build a stock-analysis multi-agent orchestration application with Spring AI wher
 | --- | --- | --- |
 | Foundation | Complete | The analysis API exists, core orchestration types are defined, the test profile runs without model credentials, and the baseline test suite passes. |
 | Thin Vertical Slice | Complete | `Coordinator -> MarketDataAgent -> SynthesisAgent` works end to end with mock data, the coordinator routes through a single LLM-backed concrete class, and tests pass with a simple routing override for local verification. |
-| Real Data Integration | In progress | Alpha Vantage replaces the mock market provider, SEC-backed fundamentals data objects are introduced, and the real-data market slice has both automated and manual verification steps. |
+| Real Data Integration | Complete | Alpha Vantage replaces the mock market provider, SEC-backed fundamentals data objects are introduced, and the real-data slices have both automated and manual verification steps. |
 | True Orchestration | Planned | The coordinator selects agents dynamically, execution no longer looks like a fixed pipeline, partial failure handling is supported, safe parallel fan-out is introduced, and routing plus degraded execution paths are covered by tests. |
-| Additional Agents | Planned | Fundamentals, news, and technical analysis agents are implemented against stable data shapes and each new agent adds its own smoke-test scenario. |
+| Additional Agents | In progress | Fundamentals, news, and technical analysis agents are implemented against stable data shapes and each new agent adds its own smoke-test scenario. |
 | Hardening | Planned | Timeouts, retries, caching, stronger tests, and workshop checkpoints are in place, with a regression suite that validates the main workshop flows. |
 | Workshop Polish | Planned | Learner instructions, checkpoints, and facilitator notes are aligned with the final implementation, and each milestone has a clear validation recipe. |
 
@@ -75,8 +76,12 @@ If a milestone cannot be verified through all three, it is not done.
 - the project now uses the Spring AI OpenAI starter for local model access.
 - `agent/marketdataagent/MarketDataAgent` executes the deterministic market-data step.
 - `agent/marketdataagent/MarketDataResult` holds the market-agent result.
+- `agent/fundamentalsagent/FundamentalsAgent` executes the deterministic fundamentals step.
+- `agent/fundamentalsagent/FundamentalsResult` holds the fundamentals-agent result.
 - `marketdata/MockMarketDataProvider` is the current development provider.
 - `marketdata/alphavantage/AlphaVantageMarketDataProvider` can replace the mock provider without changing the orchestration layer.
+- `fundamentals/sec/SecFundamentalsProvider` resolves ticker-to-CIK and normalizes SEC company facts into the fundamentals contract.
+- local secrets and per-machine settings can live in an optional git-ignored `application-local.properties` file at the repository root.
 - `agent/synthesisagent/SynthesisAgent` currently acts as a lightweight placeholder so the first slice can finish end to end.
 - once fundamentals, news, and technical analysis are real, `agent/synthesisagent/SynthesisAgent` should be promoted into a true LLM-backed synthesis agent that consumes structured outputs from the specialized agents.
 - Integration and orchestration tests are green and provide a simple routing override for repeatable verification.
@@ -97,8 +102,8 @@ This keeps the workshop centered on agents rather than on a generic `analysis` p
 
 ## Immediate Backlog
 
-1. Define SEC fundamentals data objects and a client wrapper.
-2. Implement the fundamentals agent using SEC data plus market price when needed.
+1. Implement the news agent.
+2. Implement the technical analysis agent.
 3. Promote `SynthesisAgent` from a placeholder formatter into a true LLM-backed agent once multiple analysis agents are available.
 4. Refine the coordinator prompt and routing decision shape once the fundamentals path is real.
 

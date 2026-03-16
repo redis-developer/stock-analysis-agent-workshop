@@ -3,6 +3,9 @@ package com.redis.stockanalysisagent.agent;
 import com.redis.stockanalysisagent.agent.coordinatoragent.CoordinatorAgent;
 import com.redis.stockanalysisagent.agent.coordinatoragent.ExecutionPlan;
 import com.redis.stockanalysisagent.agent.coordinatoragent.RoutingDecision;
+import com.redis.stockanalysisagent.agent.fundamentalsagent.FundamentalsAgent;
+import com.redis.stockanalysisagent.agent.fundamentalsagent.FundamentalsResult;
+import com.redis.stockanalysisagent.agent.fundamentalsagent.FundamentalsSnapshot;
 import com.redis.stockanalysisagent.agent.marketdataagent.MarketDataAgent;
 import com.redis.stockanalysisagent.agent.marketdataagent.MarketDataResult;
 import com.redis.stockanalysisagent.agent.marketdataagent.MarketSnapshot;
@@ -20,15 +23,18 @@ public class AgentOrchestrationService {
 
     private final CoordinatorAgent coordinatorAgent;
     private final MarketDataAgent marketDataAgent;
+    private final FundamentalsAgent fundamentalsAgent;
     private final SynthesisAgent synthesisAgent;
 
     public AgentOrchestrationService(
             CoordinatorAgent coordinatorAgent,
             MarketDataAgent marketDataAgent,
+            FundamentalsAgent fundamentalsAgent,
             SynthesisAgent synthesisAgent
     ) {
         this.coordinatorAgent = coordinatorAgent;
         this.marketDataAgent = marketDataAgent;
+        this.fundamentalsAgent = fundamentalsAgent;
         this.synthesisAgent = synthesisAgent;
     }
 
@@ -46,6 +52,7 @@ public class AgentOrchestrationService {
                     null,
                     List.of(),
                     null,
+                    null,
                     resolveCoordinatorMessage(routingDecision),
                     List.of("Coordinator could not produce an execution plan.")
             );
@@ -56,6 +63,7 @@ public class AgentOrchestrationService {
         List<String> limitations = new ArrayList<>();
 
         MarketSnapshot marketSnapshot = null;
+        FundamentalsSnapshot fundamentalsSnapshot = null;
         if (executionPlan.selectedAgents().contains(AgentType.MARKET_DATA)) {
             MarketDataResult marketDataResult = marketDataAgent.execute(request.ticker());
             marketSnapshot = marketDataResult.getFinalResponse();
@@ -66,8 +74,22 @@ public class AgentOrchestrationService {
             ));
         }
 
+        if (executionPlan.selectedAgents().contains(AgentType.FUNDAMENTALS)) {
+            FundamentalsResult fundamentalsResult = marketSnapshot != null
+                    ? fundamentalsAgent.execute(request.ticker(), marketSnapshot)
+                    : fundamentalsAgent.execute(request.ticker());
+            fundamentalsSnapshot = fundamentalsResult.getFinalResponse();
+            agentExecutions.add(new AgentExecution(
+                    AgentType.FUNDAMENTALS,
+                    AgentExecutionStatus.COMPLETED,
+                    "Fundamentals Agent analyzed SEC company facts for the requested ticker."
+            ));
+        }
+
         for (AgentType agentType : executionPlan.selectedAgents()) {
-            if (agentType == AgentType.MARKET_DATA) {
+            if (agentType == AgentType.MARKET_DATA
+                    || agentType == AgentType.FUNDAMENTALS
+                    || agentType == AgentType.SYNTHESIS) {
                 continue;
             }
 
@@ -81,7 +103,17 @@ public class AgentOrchestrationService {
 
         String answer = shouldUseDirectMarketAnswer(executionPlan, marketSnapshot)
                 ? marketDataAgent.createDirectAnswer(marketSnapshot)
-                : synthesisAgent.synthesize(request, executionPlan, marketSnapshot, agentExecutions);
+                : shouldUseDirectFundamentalsAnswer(executionPlan, fundamentalsSnapshot)
+                ? fundamentalsAgent.createDirectAnswer(fundamentalsSnapshot)
+                : synthesisAgent.synthesize(request, executionPlan, marketSnapshot, fundamentalsSnapshot, agentExecutions);
+
+        if (executionPlan.requiresSynthesis()) {
+            agentExecutions.add(new AgentExecution(
+                    AgentType.SYNTHESIS,
+                    AgentExecutionStatus.COMPLETED,
+                    "Synthesis Agent combined the available agent outputs into the final response."
+            ));
+        }
 
         return new AnalysisResponse(
                 request.ticker().toUpperCase(),
@@ -90,6 +122,7 @@ public class AgentOrchestrationService {
                 executionPlan,
                 List.copyOf(agentExecutions),
                 marketSnapshot,
+                fundamentalsSnapshot,
                 answer,
                 List.copyOf(limitations)
         );
@@ -114,5 +147,15 @@ public class AgentOrchestrationService {
                 && !executionPlan.requiresSynthesis()
                 && executionPlan.selectedAgents().size() == 1
                 && executionPlan.selectedAgents().contains(AgentType.MARKET_DATA);
+    }
+
+    private boolean shouldUseDirectFundamentalsAnswer(
+            ExecutionPlan executionPlan,
+            FundamentalsSnapshot fundamentalsSnapshot
+    ) {
+        return fundamentalsSnapshot != null
+                && !executionPlan.requiresSynthesis()
+                && executionPlan.selectedAgents().size() == 1
+                && executionPlan.selectedAgents().contains(AgentType.FUNDAMENTALS);
     }
 }

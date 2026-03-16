@@ -6,6 +6,8 @@ import com.redis.stockanalysisagent.api.AnalysisRequest;
 import com.redis.stockanalysisagent.api.AnalysisResponse;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.Scanner;
 
 @Service
@@ -79,6 +81,16 @@ public class CliOrchestrationService {
                     + " (" + response.marketSnapshot().percentChange() + "%)");
             System.out.println("Source: " + response.marketSnapshot().source());
         }
+        if (response.fundamentalsSnapshot() != null) {
+            System.out.println();
+            System.out.println("Fundamentals snapshot");
+            System.out.println("Company: " + response.fundamentalsSnapshot().companyName());
+            System.out.println("Revenue growth: " + formatPercent(response.fundamentalsSnapshot().revenueGrowthPercent()));
+            System.out.println("Net margin: " + formatPercent(response.fundamentalsSnapshot().netMarginPercent()));
+            System.out.println("Cash: " + formatMoney(response.fundamentalsSnapshot().cashAndCashEquivalents()));
+            System.out.println("Long-term debt: " + formatMoney(response.fundamentalsSnapshot().longTermDebt()));
+            System.out.println("Source: " + response.fundamentalsSnapshot().source());
+        }
         System.out.println();
 
         System.out.println("Stage 3/3: Final Answer");
@@ -126,5 +138,22 @@ public class CliOrchestrationService {
         }
 
         return "The coordinator could not complete the request.";
+    }
+
+    private String formatPercent(BigDecimal value) {
+        if (value == null) {
+            return "unavailable";
+        }
+
+        return value.setScale(2, RoundingMode.HALF_UP) + "%";
+    }
+
+    private String formatMoney(BigDecimal value) {
+        if (value == null) {
+            return "unavailable";
+        }
+
+        BigDecimal billions = value.divide(BigDecimal.valueOf(1_000_000_000L), 2, RoundingMode.HALF_UP);
+        return "$" + billions + "B";
     }
 }

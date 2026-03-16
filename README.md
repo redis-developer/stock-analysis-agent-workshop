@@ -23,6 +23,7 @@ Build a predictable orchestration system where:
 - market data: Alpha Vantage
 - fundamentals: SEC EDGAR / XBRL
 - current runtime default: Alpha Vantage
+- current fundamentals default: SEC
 - test profile default: mock market data provider
 
 If you want to force mock market data locally, use:
@@ -35,6 +36,22 @@ STOCK_ANALYSIS_MARKET_DATA_PROVIDER=mock
 
 - `docs/workshop-plan.md` is the source of truth for milestone status, next steps, and deferred scope
 - `docs/workshop-instructions.md` holds the learner-facing workshop instructions that evolve with the implementation
+
+## Local Config
+
+For local development, you can keep secrets and per-machine settings in a git-ignored file at the repo root:
+
+- [application-local.properties.example](/Users/raphaeldelio/Documents/GitHub/stock-analysis-agent/application-local.properties.example)
+
+Create `application-local.properties` and add values like:
+
+```properties
+spring.ai.openai.api-key=YOUR_OPENAI_KEY
+stock-analysis.market-data.alpha-vantage.api-key=YOUR_ALPHA_VANTAGE_KEY
+stock-analysis.sec.user-agent=stock-analysis-agent your-email@example.com
+```
+
+The app will load that file automatically if it exists.
 
 ## Non-Goals For The First Slice
 
@@ -61,6 +78,7 @@ The first slice returns:
 - the execution plan
 - current agent execution status
 - a market snapshot from the configured provider
+- a fundamentals snapshot when fundamentals are selected
 - a grounded response based on the currently implemented agents
 
 For this first slice, `SynthesisAgent` is intentionally lightweight. It acts as a placeholder so the orchestration can finish end to end, and it will be promoted into a true LLM-backed agent once multiple analysis agents are implemented.
@@ -70,8 +88,6 @@ For this first slice, `SynthesisAgent` is intentionally lightweight. It acts as 
 You can also test the current slice through the CLI:
 
 ```bash
-OPENAI_API_KEY=YOUR_OPENAI_KEY \
-ALPHA_VANTAGE_API_KEY=YOUR_ALPHA_VANTAGE_KEY \
 ./gradlew bootRun
 ```
 
@@ -86,7 +102,6 @@ Example:
 If you want to run the original workshop slice with mock market data instead:
 
 ```bash
-OPENAI_API_KEY=YOUR_OPENAI_KEY \
 STOCK_ANALYSIS_MARKET_DATA_PROVIDER=mock \
 ./gradlew bootRun
 ```
@@ -94,7 +109,20 @@ STOCK_ANALYSIS_MARKET_DATA_PROVIDER=mock \
 When Alpha Vantage mode is active, the CLI output should show `Source: alpha-vantage`.
 When mock mode is active, it should show `Source: mock`.
 
+To run a fundamentals-only question backed by the SEC APIs:
+
+```bash
+./gradlew bootRun
+```
+
+Then ask:
+
+- `How do AAPL fundamentals look?`
+
+The CLI should execute `FUNDAMENTALS` and print a fundamentals snapshot with `Source: sec`.
+
 `OPENAI_API_KEY` is the preferred env var for this repo. `SPRING_AI_OPENAI_API_KEY` also works.
+Environment variables still work, but `application-local.properties` is the simplest local setup.
 
 If you want to validate the workshop slice without model credentials, use:
 
