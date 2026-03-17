@@ -1,4 +1,4 @@
-package com.redis.stockanalysisagent.agent;
+package com.redis.stockanalysisagent.agent.orchestration;
 
 public enum AgentType {
     MARKET_DATA,

@@ -1,6 +1,6 @@
 package com.redis.stockanalysisagent.agent.coordinatoragent;
 
-import com.redis.stockanalysisagent.agent.AgentType;
+import com.redis.stockanalysisagent.agent.orchestration.AgentType;
 
 import java.util.ArrayList;
 import java.util.List;

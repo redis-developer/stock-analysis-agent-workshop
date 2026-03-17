@@ -1,4 +1,4 @@
-package com.redis.stockanalysisagent.agent;
+package com.redis.stockanalysisagent.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;

@@ -1,8 +1,9 @@
 package com.redis.stockanalysisagent.chat;
 
-import com.redis.stockanalysisagent.agent.AgentExecutionStatus;
-import com.redis.stockanalysisagent.agent.AgentOrchestrationService;
-import com.redis.stockanalysisagent.agent.AgentType;
+import com.redis.stockanalysisagent.agent.orchestration.AgentExecution;
+import com.redis.stockanalysisagent.agent.orchestration.AgentExecutionStatus;
+import com.redis.stockanalysisagent.agent.orchestration.AgentOrchestrationService;
+import com.redis.stockanalysisagent.agent.orchestration.AgentType;
 import com.redis.stockanalysisagent.agent.coordinatoragent.CoordinatorAgent;
 import com.redis.stockanalysisagent.agent.coordinatoragent.RoutingDecision;
 import com.redis.stockanalysisagent.api.AnalysisRequest;
@@ -124,7 +125,7 @@ public class StockAnalysisChatTools {
     ) {
     }
 
-    private ChatExecutionStep toExecutionStep(com.redis.stockanalysisagent.agent.AgentExecution agentExecution) {
+    private ChatExecutionStep toExecutionStep(AgentExecution agentExecution) {
         return agentStep(
                 agentExecution.agentType().name(),
                 formatAgentLabel(agentExecution.agentType()),

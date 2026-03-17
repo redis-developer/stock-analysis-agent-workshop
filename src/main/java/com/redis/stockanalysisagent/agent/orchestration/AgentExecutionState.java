@@ -1,4 +1,4 @@
-package com.redis.stockanalysisagent.agent;
+package com.redis.stockanalysisagent.agent.orchestration;
 
 import java.util.ArrayList;
 import java.util.EnumMap;

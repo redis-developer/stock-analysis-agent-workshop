@@ -1,4 +1,4 @@
-package com.redis.stockanalysisagent.agent;
+package com.redis.stockanalysisagent.agent.orchestration;
 
 import com.redis.stockanalysisagent.agent.coordinatoragent.CoordinatorAgent;
 import com.redis.stockanalysisagent.agent.coordinatoragent.ExecutionPlan;

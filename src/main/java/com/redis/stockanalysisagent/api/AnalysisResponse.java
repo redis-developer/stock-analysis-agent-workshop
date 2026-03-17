@@ -1,6 +1,6 @@
 package com.redis.stockanalysisagent.api;
 
-import com.redis.stockanalysisagent.agent.AgentExecution;
+import com.redis.stockanalysisagent.agent.orchestration.AgentExecution;
 import com.redis.stockanalysisagent.agent.coordinatoragent.ExecutionPlan;
 import com.redis.stockanalysisagent.agent.fundamentalsagent.FundamentalsSnapshot;
 import com.redis.stockanalysisagent.agent.marketdataagent.MarketSnapshot;
