@@ -10,7 +10,6 @@ import com.redis.stockanalysisagent.agent.newsagent.NewsSnapshot;
 import com.redis.stockanalysisagent.agent.synthesisagent.SynthesisAgent;
 import com.redis.stockanalysisagent.agent.technicalanalysisagent.TechnicalAnalysisAgent;
 import com.redis.stockanalysisagent.agent.technicalanalysisagent.TechnicalAnalysisSnapshot;
-import com.redis.stockanalysisagent.api.AnalysisRequest;
 import org.springframework.stereotype.Component;
 
 import java.util.List;

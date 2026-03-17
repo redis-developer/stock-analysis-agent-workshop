@@ -1,4 +1,4 @@
-package com.redis.stockanalysisagent.api;
+package com.redis.stockanalysisagent.agent.orchestration;
 
 import jakarta.validation.constraints.NotBlank;
 

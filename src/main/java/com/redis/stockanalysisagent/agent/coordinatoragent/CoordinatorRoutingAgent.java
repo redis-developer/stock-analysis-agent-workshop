@@ -1,6 +1,5 @@
 package com.redis.stockanalysisagent.agent.coordinatoragent;
 
-import com.redis.stockanalysisagent.api.AnalysisRequest;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.client.ResponseEntity;
 import org.springframework.ai.chat.model.ChatResponse;
