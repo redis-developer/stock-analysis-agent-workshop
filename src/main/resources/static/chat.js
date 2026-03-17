@@ -1,36 +1,46 @@
 (function () {
     const sessionStorageKey = "stock-analysis-chat:session-id";
+    const userStorageKey = "stock-analysis-chat:user-id";
 
     const state = {
         loading: false,
         messages: [],
-        sessionId: null
+        sessionId: null,
+        userId: null,
+        defaultUserId: null
     };
 
     const elements = {
         questionInput: document.getElementById("question-input"),
+        userIdInput: document.getElementById("user-id-input"),
         messages: document.getElementById("messages"),
         composer: document.getElementById("composer"),
         sendButton: document.getElementById("send-button"),
         clearButton: document.getElementById("clear-chat-button"),
         statusPill: document.getElementById("status-pill"),
+        sessionIdValue: document.getElementById("session-id-value"),
         emptyStateTemplate: document.getElementById("empty-state-template")
     };
 
     initialize();
 
-    function initialize() {
+    async function initialize() {
         state.sessionId = hydrateSessionId();
-        renderMessages();
-        autoResizeTextarea();
+        state.userId = hydrateUserIdOverride();
 
         elements.composer.addEventListener("submit", onSubmit);
         elements.clearButton.addEventListener("click", clearChat);
         elements.questionInput.addEventListener("input", autoResizeTextarea);
         elements.questionInput.addEventListener("keydown", onComposerKeydown);
         elements.messages.addEventListener("click", onSuggestionClick);
+        elements.userIdInput.addEventListener("input", onUserIdInput);
+        elements.userIdInput.addEventListener("blur", commitUserId);
 
         setStatus("Session ready");
+        await hydrateChatContext();
+        renderIdentity();
+        renderMessages();
+        autoResizeTextarea();
     }
 
     function onComposerKeydown(event) {
@@ -52,6 +62,10 @@
         setStatus("Prompt loaded");
     }
 
+    function onUserIdInput() {
+        state.userId = elements.userIdInput.value;
+    }
+
     async function onSubmit(event) {
         event.preventDefault();
         if (state.loading) {
@@ -65,6 +79,8 @@
             return;
         }
 
+        commitUserId();
+
         appendMessage({
             role: "user",
             content: question,
@@ -77,8 +93,11 @@
 
         try {
             const response = await requestChat(question);
+            state.userId = response.userId || activeUserId();
             state.sessionId = response.sessionId || state.sessionId;
+            persistUserIdOverride();
             persistSessionId(state.sessionId);
+            renderIdentity();
 
             appendMessage({
                 role: "assistant",
@@ -108,6 +127,7 @@
                 "Content-Type": "application/json"
             },
             body: JSON.stringify({
+                userId: activeUserId(),
                 sessionId: state.sessionId,
                 message: message
             })
@@ -124,12 +144,39 @@
         return body || {};
     }
 
-    async function clearChat() {
-        const currentSessionId = state.sessionId;
+    async function hydrateChatContext() {
+        try {
+            const response = await fetch(new URL("./api/chat/context", window.location.href));
+            if (!response.ok) {
+                throw new Error("Failed to load chat context.");
+            }
 
+            const body = safeParseJson(await response.text());
+            state.defaultUserId = body && typeof body.defaultUserId === "string" ? body.defaultUserId : null;
+            if (!normalizeUserId(state.userId)) {
+                state.userId = state.defaultUserId;
+            }
+        } catch (error) {
+            if (!normalizeUserId(state.userId)) {
+                state.userId = null;
+            }
+        }
+
+        persistUserIdOverride();
+    }
+
+    async function clearChat() {
+        commitUserId();
+
+        const currentSessionId = state.sessionId;
         if (currentSessionId) {
             try {
-                await fetch(new URL("./api/chat/session/" + encodeURIComponent(currentSessionId), window.location.href), {
+                const clearUrl = new URL("./api/chat/session/" + encodeURIComponent(currentSessionId), window.location.href);
+                const currentUserId = activeUserId();
+                if (currentUserId) {
+                    clearUrl.searchParams.set("userId", currentUserId);
+                }
+                await fetch(clearUrl, {
                     method: "DELETE"
                 });
             } catch (error) {
@@ -140,6 +187,7 @@
         state.messages = [];
         state.sessionId = createSessionId();
         persistSessionId(state.sessionId);
+        renderIdentity();
         renderMessages();
         setStatus("Chat cleared");
         elements.questionInput.focus();
@@ -167,6 +215,35 @@
         }
 
         scrollMessagesToBottom();
+    }
+
+    function renderIdentity() {
+        elements.userIdInput.value = state.userId || state.defaultUserId || "";
+        elements.userIdInput.placeholder = state.defaultUserId || "Username";
+        elements.sessionIdValue.textContent = state.sessionId || "Unavailable";
+    }
+
+    function commitUserId() {
+        const normalized = normalizeUserId(elements.userIdInput.value);
+        state.userId = normalized || state.defaultUserId || null;
+        persistUserIdOverride();
+        renderIdentity();
+    }
+
+    function persistUserIdOverride() {
+        const normalizedUserId = normalizeUserId(state.userId);
+        const normalizedDefault = normalizeUserId(state.defaultUserId);
+
+        try {
+            if (!normalizedUserId || normalizedUserId === normalizedDefault) {
+                window.localStorage.removeItem(userStorageKey);
+                return;
+            }
+
+            window.localStorage.setItem(userStorageKey, normalizedUserId);
+        } catch (error) {
+            // Ignore storage access failures.
+        }
     }
 
     function buildEmptyState() {
@@ -262,6 +339,7 @@
         elements.sendButton.disabled = isLoading;
         elements.clearButton.disabled = isLoading;
         elements.questionInput.disabled = isLoading;
+        elements.userIdInput.disabled = isLoading;
         elements.sendButton.textContent = isLoading ? "Sending..." : "Send";
 
         if (isLoading) {
@@ -347,6 +425,15 @@
         return sessionId;
     }
 
+    function hydrateUserIdOverride() {
+        try {
+            const savedUserId = window.localStorage.getItem(userStorageKey);
+            return normalizeUserId(savedUserId);
+        } catch (error) {
+            return null;
+        }
+    }
+
     function persistSessionId(sessionId) {
         try {
             window.localStorage.setItem(sessionStorageKey, sessionId);
@@ -361,5 +448,13 @@
         }
 
         return "session-" + Date.now();
+    }
+
+    function normalizeUserId(userId) {
+        return userId && userId.trim() ? userId.trim() : null;
+    }
+
+    function activeUserId() {
+        return normalizeUserId(state.userId) || normalizeUserId(state.defaultUserId) || null;
     }
 }());

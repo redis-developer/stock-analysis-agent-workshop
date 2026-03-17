@@ -18,6 +18,23 @@
         </div>
 
         <div class="header-actions">
+            <div class="session-identity" aria-label="Agent memory identity">
+                <div class="identity-item">
+                    <label class="identity-label" for="user-id-input">User</label>
+                    <input
+                        id="user-id-input"
+                        class="identity-input"
+                        type="text"
+                        autocomplete="off"
+                        spellcheck="false"
+                        placeholder="Loading..."
+                    >
+                </div>
+                <div class="identity-item">
+                    <span class="identity-label">Session</span>
+                    <span id="session-id-value" class="identity-value">Loading...</span>
+                </div>
+            </div>
             <button id="clear-chat-button" class="btn btn-secondary" type="button">Clear chat</button>
         </div>
     </header>

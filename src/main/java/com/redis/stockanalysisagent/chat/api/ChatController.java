@@ -4,11 +4,13 @@ import com.redis.stockanalysisagent.chat.StockAnalysisChatService;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.UUID;
@@ -30,14 +32,16 @@ public class ChatController {
 
     @PostMapping
     public ResponseEntity<ChatResponse> chat(@Valid @RequestBody ChatRequest request) {
+        String userId = normalizeUserId(request.userId());
         String sessionId = normalizeSessionId(request.sessionId());
         StockAnalysisChatService.ChatTurn turn = stockAnalysisChatService.chat(
-                defaultUserId,
+                userId,
                 sessionId,
                 request.message().trim()
         );
 
         return ResponseEntity.ok(new ChatResponse(
+                userId,
                 sessionId,
                 turn.conversationId(),
                 turn.response(),
@@ -45,9 +49,17 @@ public class ChatController {
         ));
     }
 
+    @GetMapping("/context")
+    public ResponseEntity<ChatContextResponse> context() {
+        return ResponseEntity.ok(new ChatContextResponse(defaultUserId));
+    }
+
     @DeleteMapping("/session/{sessionId}")
-    public ResponseEntity<Void> clearSession(@PathVariable String sessionId) {
-        stockAnalysisChatService.clearSession(defaultUserId, sessionId);
+    public ResponseEntity<Void> clearSession(
+            @PathVariable String sessionId,
+            @RequestParam(required = false) String userId
+    ) {
+        stockAnalysisChatService.clearSession(normalizeUserId(userId), sessionId);
         return ResponseEntity.noContent().build();
     }
 
@@ -57,5 +69,13 @@ public class ChatController {
         }
 
         return sessionId.trim();
+    }
+
+    private String normalizeUserId(String userId) {
+        if (userId == null || userId.isBlank()) {
+            return defaultUserId;
+        }
+
+        return userId.trim();
     }
 }

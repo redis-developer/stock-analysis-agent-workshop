@@ -41,24 +41,36 @@ class ChatControllerIntegrationTest {
 
     @Test
     void proxiesMessagesThroughTheChatService() {
-        when(stockAnalysisChatService.chat(eq("test-user"), eq("session-123"), eq("What is the current price of Apple?")))
+        when(stockAnalysisChatService.chat(eq("custom-user"), eq("session-123"), eq("What is the current price of Apple?")))
                 .thenReturn(new StockAnalysisChatService.ChatTurn(
-                        "test-user:session-123",
+                        "custom-user:session-123",
                         "Apple is trading at $200.00.",
                         List.of("The user asked about Apple earlier.")
                 ));
 
         ChatResponse response = client().post()
                 .uri("/api/chat")
-                .body(new ChatRequest("session-123", "What is the current price of Apple?"))
+                .body(new ChatRequest("custom-user", "session-123", "What is the current price of Apple?"))
                 .retrieve()
                 .body(ChatResponse.class);
 
         assertThat(response).isNotNull();
+        assertThat(response.userId()).isEqualTo("custom-user");
         assertThat(response.sessionId()).isEqualTo("session-123");
-        assertThat(response.conversationId()).isEqualTo("test-user:session-123");
+        assertThat(response.conversationId()).isEqualTo("custom-user:session-123");
         assertThat(response.response()).isEqualTo("Apple is trading at $200.00.");
         assertThat(response.retrievedMemories()).containsExactly("The user asked about Apple earlier.");
+    }
+
+    @Test
+    void exposesTheConfiguredUserIdForTheFrontend() {
+        ChatContextResponse response = client().get()
+                .uri("/api/chat/context")
+                .retrieve()
+                .body(ChatContextResponse.class);
+
+        assertThat(response).isNotNull();
+        assertThat(response.defaultUserId()).isEqualTo("test-user");
     }
 
     @Test
@@ -75,11 +87,12 @@ class ChatControllerIntegrationTest {
 
         ChatResponse response = client().post()
                 .uri("/api/chat")
-                .body(new ChatRequest(null, "hello"))
+                .body(new ChatRequest(null, null, "hello"))
                 .retrieve()
                 .body(ChatResponse.class);
 
         assertThat(response).isNotNull();
+        assertThat(response.userId()).isEqualTo("test-user");
         assertThat(response.sessionId()).isNotBlank();
         assertThat(response.conversationId()).isEqualTo("test-user:" + response.sessionId());
         assertThat(response.response()).isEqualTo("hello back");
@@ -88,18 +101,18 @@ class ChatControllerIntegrationTest {
     @Test
     void clearsTheBrowserSessionThroughTheChatService() {
         client().delete()
-                .uri("/api/chat/session/session-123")
+                .uri("/api/chat/session/session-123?userId=custom-user")
                 .retrieve()
                 .toBodilessEntity();
 
-        verify(stockAnalysisChatService).clearSession("test-user", "session-123");
+        verify(stockAnalysisChatService).clearSession("custom-user", "session-123");
     }
 
     @Test
     void rejectsBlankMessages() {
         assertThatThrownBy(() -> client().post()
                 .uri("/api/chat")
-                .body(new ChatRequest("session-123", "   "))
+                .body(new ChatRequest("custom-user", "session-123", "   "))
                 .retrieve()
                 .toBodilessEntity())
                 .isInstanceOf(RestClientResponseException.class)

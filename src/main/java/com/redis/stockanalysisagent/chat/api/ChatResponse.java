@@ -3,6 +3,7 @@ package com.redis.stockanalysisagent.chat.api;
 import java.util.List;
 
 public record ChatResponse(
+        String userId,
         String sessionId,
         String conversationId,
         String response,
