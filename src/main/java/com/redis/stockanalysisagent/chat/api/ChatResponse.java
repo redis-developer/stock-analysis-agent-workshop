@@ -7,6 +7,8 @@ public record ChatResponse(
         String sessionId,
         String conversationId,
         String response,
-        List<String> retrievedMemories
+        List<String> retrievedMemories,
+        boolean fromSemanticCache,
+        long responseTimeMs
 ) {
 }

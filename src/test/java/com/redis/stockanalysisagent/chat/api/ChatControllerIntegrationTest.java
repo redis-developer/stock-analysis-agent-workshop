@@ -45,7 +45,8 @@ class ChatControllerIntegrationTest {
                 .thenReturn(new StockAnalysisChatService.ChatTurn(
                         "custom-user:session-123",
                         "Apple is trading at $200.00.",
-                        List.of("The user asked about Apple earlier.")
+                        List.of("The user asked about Apple earlier."),
+                        true
                 ));
 
         ChatResponse response = client().post()
@@ -60,6 +61,8 @@ class ChatControllerIntegrationTest {
         assertThat(response.conversationId()).isEqualTo("custom-user:session-123");
         assertThat(response.response()).isEqualTo("Apple is trading at $200.00.");
         assertThat(response.retrievedMemories()).containsExactly("The user asked about Apple earlier.");
+        assertThat(response.fromSemanticCache()).isTrue();
+        assertThat(response.responseTimeMs()).isGreaterThanOrEqualTo(0);
     }
 
     @Test
@@ -81,7 +84,8 @@ class ChatControllerIntegrationTest {
                     return new StockAnalysisChatService.ChatTurn(
                             "test-user:" + generatedSessionId,
                             "hello back",
-                            List.of()
+                            List.of(),
+                            false
                     );
                 });
 
@@ -96,6 +100,8 @@ class ChatControllerIntegrationTest {
         assertThat(response.sessionId()).isNotBlank();
         assertThat(response.conversationId()).isEqualTo("test-user:" + response.sessionId());
         assertThat(response.response()).isEqualTo("hello back");
+        assertThat(response.fromSemanticCache()).isFalse();
+        assertThat(response.responseTimeMs()).isGreaterThanOrEqualTo(0);
     }
 
     @Test

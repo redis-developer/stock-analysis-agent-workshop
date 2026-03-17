@@ -103,7 +103,9 @@
                 role: "assistant",
                 content: response.response || "No response returned.",
                 timestamp: new Date().toISOString(),
-                memories: response.retrievedMemories || []
+                memories: response.retrievedMemories || [],
+                fromSemanticCache: Boolean(response.fromSemanticCache),
+                responseTimeMs: Number.isFinite(response.responseTimeMs) ? response.responseTimeMs : null
             });
             setStatus("Response received");
         } catch (error) {
@@ -263,11 +265,36 @@
         role.className = "message__role";
         role.textContent = message.role === "user" ? "You" : "Agent";
 
+        const meta = document.createElement("div");
+        meta.className = "message__meta";
+
+        if (message.fromSemanticCache || message.responseTimeMs != null) {
+            const badges = document.createElement("div");
+            badges.className = "message__badges";
+
+            if (message.fromSemanticCache) {
+                const cacheBadge = document.createElement("span");
+                cacheBadge.className = "badge badge--cache";
+                cacheBadge.textContent = "From cache";
+                badges.appendChild(cacheBadge);
+            }
+
+            if (message.responseTimeMs != null) {
+                const durationBadge = document.createElement("span");
+                durationBadge.className = "badge badge--timing";
+                durationBadge.textContent = formatDuration(message.responseTimeMs);
+                badges.appendChild(durationBadge);
+            }
+
+            meta.appendChild(badges);
+        }
+
         const timestamp = document.createElement("span");
         timestamp.className = "message__timestamp";
         timestamp.textContent = formatTimestamp(message.timestamp);
 
-        header.append(role, timestamp);
+        meta.appendChild(timestamp);
+        header.append(role, meta);
         article.appendChild(header);
 
         const content = document.createElement("div");
@@ -418,6 +445,14 @@
         } catch (error) {
             return null;
         }
+    }
+
+    function formatDuration(durationMs) {
+        if (durationMs < 1000) {
+            return durationMs + " ms";
+        }
+
+        return (durationMs / 1000).toFixed(durationMs >= 10_000 ? 0 : 1) + " s";
     }
 
     function hydrateSessionId() {

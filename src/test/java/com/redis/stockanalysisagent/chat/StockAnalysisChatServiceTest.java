@@ -27,6 +27,8 @@ class StockAnalysisChatServiceTest {
 
         when(chatTools.analyzeStockRequest("What is Apple's current price?"))
                 .thenReturn("Apple is trading at $200.00.");
+        when(chatTools.consumeInvocationMetadata())
+                .thenReturn(new StockAnalysisChatTools.ToolResultMetadata(true));
         when(memoryRepository.getLastRetrievedMemories())
                 .thenReturn(List.of("The user asked about Apple earlier."));
 
@@ -47,6 +49,7 @@ class StockAnalysisChatServiceTest {
         assertThat(turn.conversationId()).isEqualTo("test-user:test-session");
         assertThat(turn.response()).isEqualTo("Apple is trading at $200.00.");
         assertThat(turn.retrievedMemories()).containsExactly("The user asked about Apple earlier.");
+        assertThat(turn.fromSemanticCache()).isTrue();
         verify(chatMemory).add(
                 eq("test-user:test-session"),
                 argThat((Message message) -> "What is Apple's current price?".equals(message.getText()))

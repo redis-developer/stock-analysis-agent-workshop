@@ -13,9 +13,12 @@ import org.springframework.stereotype.Component;
 @Component
 public class StockAnalysisChatTools {
 
+    private static final ToolResultMetadata NOT_FROM_CACHE = new ToolResultMetadata(false);
+
     private final CoordinatorAgent coordinatorAgent;
     private final AgentOrchestrationService agentOrchestrationService;
     private final SemanticAnalysisCache semanticAnalysisCache;
+    private final ThreadLocal<ToolResultMetadata> invocationMetadata = ThreadLocal.withInitial(() -> NOT_FROM_CACHE);
 
     public StockAnalysisChatTools(
             CoordinatorAgent coordinatorAgent,
@@ -32,8 +35,11 @@ public class StockAnalysisChatTools {
             @ToolParam(description = "The user's stock-analysis request in plain English, including any ticker or company reference resolved from conversation context.")
             String request
     ) {
+        invocationMetadata.set(NOT_FROM_CACHE);
+
         java.util.Optional<String> cachedResponse = semanticAnalysisCache.findAnswer(request);
         if (cachedResponse.isPresent()) {
+            invocationMetadata.set(new ToolResultMetadata(true));
             return cachedResponse.get();
         }
 
@@ -56,6 +62,16 @@ public class StockAnalysisChatTools {
         return renderedResponse;
     }
 
+    public void resetInvocationMetadata() {
+        invocationMetadata.remove();
+    }
+
+    public ToolResultMetadata consumeInvocationMetadata() {
+        ToolResultMetadata metadata = invocationMetadata.get();
+        invocationMetadata.remove();
+        return metadata == null ? NOT_FROM_CACHE : metadata;
+    }
+
     private String resolveCoordinatorMessage(RoutingDecision routingDecision) {
         if (routingDecision.getFinalResponse() != null && !routingDecision.getFinalResponse().isBlank()) {
             return routingDecision.getFinalResponse();
@@ -75,5 +91,10 @@ public class StockAnalysisChatTools {
 
         return "%s\n\nLimitations: %s"
                 .formatted(response.answer(), String.join(" ", response.limitations()));
+    }
+
+    public record ToolResultMetadata(
+            boolean fromSemanticCache
+    ) {
     }
 }

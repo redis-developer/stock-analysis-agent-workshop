@@ -43,6 +43,7 @@ class StockAnalysisChatToolsTest {
         String response = chatTools.analyzeStockRequest("What is Apple's current price?");
 
         assertThat(response).isEqualTo("Apple is trading at $200.00.");
+        assertThat(chatTools.consumeInvocationMetadata().fromSemanticCache()).isTrue();
         verify(coordinatorAgent, never()).execute(any(String.class));
         verify(orchestrationService, never()).processRequest(any(), any());
     }
@@ -93,6 +94,7 @@ class StockAnalysisChatToolsTest {
         String response = chatTools.analyzeStockRequest("What is Apple's current price?");
 
         assertThat(response).isEqualTo("Apple is trading at $200.00.");
+        assertThat(chatTools.consumeInvocationMetadata().fromSemanticCache()).isFalse();
         verify(semanticAnalysisCache).store("What is Apple's current price?", "Apple is trading at $200.00.");
     }
 }

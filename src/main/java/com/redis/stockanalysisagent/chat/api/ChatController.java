@@ -34,18 +34,22 @@ public class ChatController {
     public ResponseEntity<ChatResponse> chat(@Valid @RequestBody ChatRequest request) {
         String userId = normalizeUserId(request.userId());
         String sessionId = normalizeSessionId(request.sessionId());
+        long startedAt = System.nanoTime();
         StockAnalysisChatService.ChatTurn turn = stockAnalysisChatService.chat(
                 userId,
                 sessionId,
                 request.message().trim()
         );
+        long responseTimeMs = (System.nanoTime() - startedAt) / 1_000_000;
 
         return ResponseEntity.ok(new ChatResponse(
                 userId,
                 sessionId,
                 turn.conversationId(),
                 turn.response(),
-                turn.retrievedMemories()
+                turn.retrievedMemories(),
+                turn.fromSemanticCache(),
+                responseTimeMs
         ));
     }
 

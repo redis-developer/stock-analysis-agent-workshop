@@ -63,6 +63,7 @@ public class StockAnalysisChatService {
 
     public ChatTurn chat(String userId, String sessionId, String message) {
         String conversationId = AmsChatMemoryRepository.createConversationId(userId, sessionId);
+        stockAnalysisChatTools.resetInvocationMetadata();
 
         if (chatClient == null) {
             return fallbackTurn(conversationId, message);
@@ -74,11 +75,13 @@ public class StockAnalysisChatService {
                     .advisors(spec -> spec.param(ChatMemory.CONVERSATION_ID, conversationId))
                     .call()
                     .content();
+            StockAnalysisChatTools.ToolResultMetadata metadata = stockAnalysisChatTools.consumeInvocationMetadata();
 
             return new ChatTurn(
                     conversationId,
                     response,
-                    memoryRepository.getLastRetrievedMemories()
+                    memoryRepository.getLastRetrievedMemories(),
+                    metadata.fromSemanticCache()
             );
         } catch (RuntimeException ex) {
             log.warn("Falling back to deterministic chat handling because the memory-backed chat client failed.", ex);
@@ -95,7 +98,9 @@ public class StockAnalysisChatService {
     }
 
     private ChatTurn fallbackTurn(String conversationId, String message) {
+        stockAnalysisChatTools.resetInvocationMetadata();
         String response = stockAnalysisChatTools.analyzeStockRequest(message);
+        StockAnalysisChatTools.ToolResultMetadata metadata = stockAnalysisChatTools.consumeInvocationMetadata();
 
         try {
             chatMemory.add(conversationId, new UserMessage(message));
@@ -106,14 +111,16 @@ public class StockAnalysisChatService {
         return new ChatTurn(
                 conversationId,
                 response,
-                memoryRepository.getLastRetrievedMemories()
+                memoryRepository.getLastRetrievedMemories(),
+                metadata.fromSemanticCache()
         );
     }
 
     public record ChatTurn(
             String conversationId,
             String response,
-            List<String> retrievedMemories
+            List<String> retrievedMemories,
+            boolean fromSemanticCache
     ) {
     }
 }
