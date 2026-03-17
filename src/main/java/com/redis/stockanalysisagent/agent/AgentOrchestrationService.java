@@ -12,7 +12,6 @@ import com.redis.stockanalysisagent.agent.marketdataagent.MarketSnapshot;
 import com.redis.stockanalysisagent.agent.newsagent.NewsAgent;
 import com.redis.stockanalysisagent.agent.newsagent.NewsResult;
 import com.redis.stockanalysisagent.agent.newsagent.NewsSnapshot;
-import com.redis.stockanalysisagent.agent.synthesisagent.SynthesisAgent;
 import com.redis.stockanalysisagent.agent.technicalanalysisagent.TechnicalAnalysisAgent;
 import com.redis.stockanalysisagent.agent.technicalanalysisagent.TechnicalAnalysisResult;
 import com.redis.stockanalysisagent.agent.technicalanalysisagent.TechnicalAnalysisSnapshot;
@@ -22,14 +21,11 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.core.task.TaskExecutor;
 import org.springframework.stereotype.Service;
 
-import java.util.ArrayList;
-import java.util.EnumMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
-import java.util.function.Function;
 import java.util.function.Supplier;
 
 @Service
@@ -40,8 +36,8 @@ public class AgentOrchestrationService {
     private final FundamentalsAgent fundamentalsAgent;
     private final NewsAgent newsAgent;
     private final TechnicalAnalysisAgent technicalAnalysisAgent;
-    private final SynthesisAgent synthesisAgent;
     private final TaskExecutor agentTaskExecutor;
+    private final AgentAnswerComposer answerComposer;
 
     public AgentOrchestrationService(
             CoordinatorAgent coordinatorAgent,
@@ -49,16 +45,16 @@ public class AgentOrchestrationService {
             FundamentalsAgent fundamentalsAgent,
             NewsAgent newsAgent,
             TechnicalAnalysisAgent technicalAnalysisAgent,
-            SynthesisAgent synthesisAgent,
-            @Qualifier("agentTaskExecutor") TaskExecutor agentTaskExecutor
+            @Qualifier("agentTaskExecutor") TaskExecutor agentTaskExecutor,
+            AgentAnswerComposer answerComposer
     ) {
         this.coordinatorAgent = coordinatorAgent;
         this.marketDataAgent = marketDataAgent;
         this.fundamentalsAgent = fundamentalsAgent;
         this.newsAgent = newsAgent;
         this.technicalAnalysisAgent = technicalAnalysisAgent;
-        this.synthesisAgent = synthesisAgent;
         this.agentTaskExecutor = agentTaskExecutor;
+        this.answerComposer = answerComposer;
     }
 
     public AnalysisResponse processRequest(AnalysisRequest request, RoutingDecision routingDecision) {
@@ -73,19 +69,19 @@ public class AgentOrchestrationService {
             return unableToPlanResponse(request, routingDecision);
         }
 
-        ExecutionState state = executeSelectedAgents(request, executionPlan);
-        String answer = buildAnswer(request, executionPlan, state);
+        AgentExecutionState state = executeSelectedAgents(request, executionPlan);
+        String answer = answerComposer.compose(request, executionPlan, state);
 
         return AnalysisResponse.completed(
                 request,
                 executionPlan,
-                state.agentExecutions,
-                structuredOutput(state, AgentType.MARKET_DATA, MarketSnapshot.class),
-                structuredOutput(state, AgentType.FUNDAMENTALS, FundamentalsSnapshot.class),
-                structuredOutput(state, AgentType.NEWS, NewsSnapshot.class),
-                structuredOutput(state, AgentType.TECHNICAL_ANALYSIS, TechnicalAnalysisSnapshot.class),
+                state.agentExecutions(),
+                answerComposer.structuredOutput(state, AgentType.MARKET_DATA, MarketSnapshot.class),
+                answerComposer.structuredOutput(state, AgentType.FUNDAMENTALS, FundamentalsSnapshot.class),
+                answerComposer.structuredOutput(state, AgentType.NEWS, NewsSnapshot.class),
+                answerComposer.structuredOutput(state, AgentType.TECHNICAL_ANALYSIS, TechnicalAnalysisSnapshot.class),
                 answer,
-                state.limitations
+                state.limitations()
         );
     }
 
@@ -97,8 +93,8 @@ public class AgentOrchestrationService {
         );
     }
 
-    private ExecutionState executeSelectedAgents(AnalysisRequest request, ExecutionPlan executionPlan) {
-        ExecutionState state = new ExecutionState();
+    private AgentExecutionState executeSelectedAgents(AnalysisRequest request, ExecutionPlan executionPlan) {
+        AgentExecutionState state = new AgentExecutionState();
         Map<AgentType, CompletableFuture<AgentExecutionOutcome>> executionFutures = new LinkedHashMap<>();
         CompletableFuture<AgentExecutionOutcome> marketFuture = null;
 
@@ -266,72 +262,17 @@ public class AgentOrchestrationService {
         );
     }
 
-    private void mergeOutcome(ExecutionState state, AgentExecutionOutcome outcome) {
-        state.agentExecutions.add(outcome.execution());
+    private void mergeOutcome(AgentExecutionState state, AgentExecutionOutcome outcome) {
+        state.addExecution(outcome.execution());
         if (outcome.limitation() != null) {
-            state.limitations.add(outcome.limitation());
+            state.addLimitation(outcome.limitation());
         }
         if (outcome.output() != null) {
-            state.structuredOutputs.put(outcome.execution().agentType(), outcome.output());
+            state.putStructuredOutput(outcome.execution().agentType(), outcome.output());
         }
         if (outcome.directAnswer() != null && !outcome.directAnswer().isBlank()) {
-            state.directAnswers.put(outcome.execution().agentType(), outcome.directAnswer());
+            state.putDirectAnswer(outcome.execution().agentType(), outcome.directAnswer());
         }
-    }
-
-    private String buildAnswer(AnalysisRequest request, ExecutionPlan executionPlan, ExecutionState state) {
-        String directAnswer = resolveDirectAnswer(executionPlan, state);
-        if (directAnswer != null) {
-            return directAnswer;
-        }
-
-        if (hasAnyStructuredOutputs(state)) {
-            MarketSnapshot marketSnapshot = structuredOutput(state, AgentType.MARKET_DATA, MarketSnapshot.class);
-            FundamentalsSnapshot fundamentalsSnapshot = structuredOutput(state, AgentType.FUNDAMENTALS, FundamentalsSnapshot.class);
-            NewsSnapshot newsSnapshot = structuredOutput(state, AgentType.NEWS, NewsSnapshot.class);
-            TechnicalAnalysisSnapshot technicalAnalysisSnapshot = structuredOutput(
-                    state,
-                    AgentType.TECHNICAL_ANALYSIS,
-                    TechnicalAnalysisSnapshot.class
-            );
-            long synthesisStartedAt = System.nanoTime();
-            String synthesizedAnswer = synthesisAgent.synthesize(
-                    request,
-                    executionPlan,
-                    marketSnapshot,
-                    fundamentalsSnapshot,
-                    newsSnapshot,
-                    technicalAnalysisSnapshot,
-                    state.agentExecutions
-            );
-
-            state.agentExecutions.add(completedExecution(
-                    AgentType.SYNTHESIS,
-                    elapsedDurationMs(synthesisStartedAt),
-                    synthesisSummary(state)
-            ));
-
-            return synthesizedAnswer;
-        }
-
-        if (executionPlan.requiresSynthesis()) {
-            state.agentExecutions.add(new AgentExecution(
-                    AgentType.SYNTHESIS,
-                    AgentExecutionStatus.SKIPPED,
-                    "Synthesis skipped.",
-                    0
-            ));
-        }
-
-        if (!state.limitations.isEmpty()) {
-            return "I could not complete the requested analysis. %s".formatted(String.join(" ", state.limitations));
-        }
-
-        return "I could not complete the requested analysis with the currently available agent outputs.";
-    }
-
-    private boolean hasAnyStructuredOutputs(ExecutionState state) {
-        return !state.structuredOutputs.isEmpty();
     }
 
     private String agentLabel(AgentType agentType) {
@@ -368,22 +309,6 @@ public class AgentOrchestrationService {
 
     private String summarizeOutcome(String message, String fallback) {
         return normalizeSummary(message, fallback);
-    }
-
-    private String synthesisSummary(ExecutionState state) {
-        List<String> contributingAgents = state.agentExecutions.stream()
-                .map(AgentExecution::agentType)
-                .filter(agentType -> agentType != AgentType.SYNTHESIS)
-                .distinct()
-                .map(this::agentLabel)
-                .toList();
-
-        if (contributingAgents.isEmpty()) {
-            return "Combined the available specialist outputs into the final response.";
-        }
-
-        return "Combined outputs from %s into the final response."
-                .formatted(String.join(", ", contributingAgents));
     }
 
     private String normalizeSummary(String summary, String fallback) {
@@ -423,75 +348,6 @@ public class AgentOrchestrationService {
         }
 
         return "The coordinator could not complete the request.";
-    }
-
-    private String resolveDirectAnswer(ExecutionPlan executionPlan, ExecutionState state) {
-        if (executionPlan.requiresSynthesis() || executionPlan.selectedAgents().size() != 1) {
-            return null;
-        }
-
-        AgentType selectedAgent = executionPlan.selectedAgents().get(0);
-        return switch (selectedAgent) {
-            case MARKET_DATA -> directAnswer(
-                    state,
-                    AgentType.MARKET_DATA,
-                    MarketSnapshot.class,
-                    marketDataAgent::createDirectAnswer
-            );
-            case FUNDAMENTALS -> directAnswer(
-                    state,
-                    AgentType.FUNDAMENTALS,
-                    FundamentalsSnapshot.class,
-                    fundamentalsAgent::createDirectAnswer
-            );
-            case NEWS -> directAnswer(
-                    state,
-                    AgentType.NEWS,
-                    NewsSnapshot.class,
-                    newsAgent::createDirectAnswer
-            );
-            case TECHNICAL_ANALYSIS -> directAnswer(
-                    state,
-                    AgentType.TECHNICAL_ANALYSIS,
-                    TechnicalAnalysisSnapshot.class,
-                    technicalAnalysisAgent::createDirectAnswer
-            );
-            case SYNTHESIS -> null;
-        };
-    }
-
-    private <T> T structuredOutput(ExecutionState state, AgentType agentType, Class<T> outputType) {
-        Object output = state.structuredOutputs.get(agentType);
-        if (outputType.isInstance(output)) {
-            return outputType.cast(output);
-        }
-        return null;
-    }
-
-    private <T> String directAnswer(
-            ExecutionState state,
-            AgentType agentType,
-            Class<T> outputType,
-            Function<T, String> fallback
-    ) {
-        T output = structuredOutput(state, agentType, outputType);
-        if (output == null) {
-            return null;
-        }
-
-        String directAnswer = state.directAnswers.get(agentType);
-        if (directAnswer != null && !directAnswer.isBlank()) {
-            return directAnswer;
-        }
-
-        return fallback.apply(output);
-    }
-
-    private static class ExecutionState {
-        private final List<AgentExecution> agentExecutions = new ArrayList<>();
-        private final List<String> limitations = new ArrayList<>();
-        private final Map<AgentType, Object> structuredOutputs = new EnumMap<>(AgentType.class);
-        private final Map<AgentType, String> directAnswers = new EnumMap<>(AgentType.class);
     }
 
     private record AgentExecutionOutcome(

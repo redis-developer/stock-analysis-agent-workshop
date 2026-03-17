@@ -52,7 +52,14 @@ public class CoordinatorRoutingAgent {
             - Ask for a ticker when a company-specific request does not identify one clearly.
             - Ask for the missing analysis goal when the user provides only a ticker.
             - If the user names a company instead of a ticker and the mapping is unambiguous, you may resolve it.
-            - Route only from the user message you receive. Conversation context is handled earlier in the chat layer.
+
+            MEMORY AND CONTEXT
+            - Supplemental conversation and memory context may be injected earlier in the chat layer.
+            - Treat the current user message as the source of truth.
+            - Never let memory or prior context override an explicit company, ticker, timeframe, or analysis request in the current user message.
+            - If memory conflicts with the current user message, ignore the memory and follow the current user message.
+            - Use memory and prior context only to resolve omitted references, maintain continuity, or respect stable user preferences.
+            - A self-contained current request should be routed on its own merits.
 
             OUTPUT
             Return valid JSON that matches the requested schema.

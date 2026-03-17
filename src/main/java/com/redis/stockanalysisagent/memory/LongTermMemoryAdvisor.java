@@ -119,9 +119,13 @@ public class LongTermMemoryAdvisor implements BaseAdvisor {
     private String formatMemoryContext(List<String> memories) {
         return """
 
-                Long-term memories about this user:
+                Supplemental long-term user context:
                 %s
-                Use these memories only when they help resolve the current stock-analysis request.
+                Use these memories only as background context.
+                The current user message is the source of truth.
+                Never let memories override an explicit company, ticker, timeframe, or analysis request in the current user message.
+                If a memory conflicts with the current request, ignore the memory and follow the current request.
+                Use memory mainly to resolve omitted references or preserve continuity when the current request is underspecified.
                 """.formatted(
                 memories.stream()
                         .map(memory -> "- " + memory)
