@@ -6,10 +6,10 @@ This file is for whoever runs the workshop live. It is intentionally practical r
 
 ## Required Local Setup
 
-Start Redis first:
+Create `.env` from `.env.example` or export `OPENAI_API_KEY`, then start the local infrastructure:
 
 ```bash
-docker compose up -d redis
+docker compose up -d redis agent-memory-server redis-insight
 ```
 
 Create a local `application-local.properties` file at the repository root with:
@@ -19,6 +19,7 @@ spring.ai.openai.api-key=YOUR_OPENAI_KEY
 stock-analysis.market-data.twelve-data.api-key=YOUR_TWELVE_DATA_API_KEY
 stock-analysis.sec.user-agent=stock-analysis-agent your-email@example.com
 stock-analysis.news.tavily.api-key=YOUR_TAVILY_API_KEY
+agent-memory.server.url=http://localhost:8000
 ```
 
 Notes:
@@ -26,6 +27,7 @@ Notes:
 - `Tavily` is optional. The news agent still works with SEC-only results.
 - `SEC user-agent` is not something you fetch from SEC. It is a descriptive string you provide yourself, ideally app name plus an email address.
 - Redis uses the default local host/port from `compose.yaml`, so you usually do not need to configure it explicitly.
+- `agent-memory-server` gets its OpenAI key from Docker Compose, so `.env` or exported shell env is the right place for that value.
 
 ## Recommended Demo Order
 
@@ -37,14 +39,14 @@ Use the CLI for the main workshop path:
 
 Recommended live prompts:
 
-1. `What's the current price?`
-   Then answer `AAPL`
-2. `How do AAPL fundamentals look?`
-3. `What recent news should I know about Apple?`
-4. `What do the technicals look like for Apple?`
-5. `Give me a full view on Apple with fundamentals, news, and technical analysis`
+1. `What's the current price of Apple?`
+2. `What about its fundamentals?`
+3. `And any recent news?`
+4. `What do the technicals look like?`
+5. `Give me a full view with price, fundamentals, news, and technical analysis`
+6. `/clear`
 
-That sequence shows the system moving from single-agent routing to full orchestration.
+That sequence shows the system moving from conversational memory into single-agent routing and finally full orchestration.
 It also gives you a clean moment to explain that market data, fundamentals, technical analysis, and news are now all tool-backed specialist agents.
 
 ## What To Explain Out Loud
@@ -54,7 +56,8 @@ It also gives you a clean moment to explain that market data, fundamentals, tech
 - Deterministic providers still fetch or compute the underlying facts.
 - The model is used mainly for routing and synthesis, not for inventing market data.
 - Tool-backed specialists still go through the cached provider layer so the same upstream API is not hit repeatedly.
-- The CLI sections are just presentation. The runtime underneath is orchestration, not a permanent workflow.
+- The chat layer now carries memory, but the runtime underneath is still orchestration, not a hidden autonomous workflow.
+- Short-term memory comes from Spring AI chat memory, and long-term memory comes from Redis Agent Memory through advisors.
 
 ## Common Failure Modes
 
@@ -107,12 +110,26 @@ Symptom:
 
 Check:
 
-- `docker compose up -d redis`
+- `docker compose up -d redis agent-memory-server redis-insight`
 - Redis is healthy in `docker compose ps`
 
 Temporary fallback:
 
 - set `spring.cache.type=simple` in `application-local.properties`
+
+### Agent Memory Server is not running
+
+Symptom:
+
+- chat still works poorly or behaves like one-shot prompting
+- memory context percentage is absent
+- follow-up prompts lose the company context more easily than expected
+
+Check:
+
+- `docker compose up -d agent-memory-server`
+- `OPENAI_API_KEY` was available to Docker Compose when the container started
+- `agent-memory.server.url` still points to `http://localhost:8000`
 
 ### macOS Netty DNS warning
 
@@ -131,7 +148,8 @@ If live provider access becomes flaky:
 
 1. Keep using the CLI and demonstrate the routing flow.
 2. Fall back to `./gradlew test` to show the workshop slice is still verified.
-3. For market-only demos, temporarily run with:
+3. If the memory stack is having a bad day, explain that the bounded stock-analysis tool still works and continue with shorter single-turn prompts.
+4. For market-only demos, temporarily run with:
 
 ```bash
 STOCK_ANALYSIS_MARKET_DATA_PROVIDER=mock ./gradlew bootRun
@@ -160,9 +178,11 @@ Use this rhythm during delivery:
 
 - `./gradlew test` passes locally
 - `./gradlew bootRun` works with your local config
+- `docker compose up -d redis agent-memory-server redis-insight` succeeds locally
 - OpenAI key is valid
 - Twelve Data key is valid
 - SEC user-agent is set
 - Tavily key is available if you want the full hybrid news demo
 - Redis is running from `compose.yaml`
+- Agent Memory Server is running from `compose.yaml`
 - you have one fallback plan ready if a live provider is slow or rate-limited

@@ -53,6 +53,13 @@ stock-analysis:
     ticker-file-url: https://www.sec.gov/files/company_tickers.json
     user-agent: ${SEC_USER_AGENT:stock-analysis-agent-workshop workshop@example.com}
 
+agent-memory:
+  server:
+    url: ${AGENT_MEMORY_SERVER_URL:http://localhost:8000}
+    namespace: ${AGENT_MEMORY_NAMESPACE:stock-analysis}
+
 app:
   cli:
     enabled: true
+  chat:
+    user-id: ${CHAT_USER_ID:workshop-user}

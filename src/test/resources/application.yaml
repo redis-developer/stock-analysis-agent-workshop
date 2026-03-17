@@ -11,6 +11,11 @@ spring:
         speech: none
         transcription: none
 
+agent-memory:
+  server:
+    url: http://localhost:8000
+    namespace: stock-analysis-test
+
 stock-analysis:
   market-data:
     provider: mock
@@ -18,3 +23,5 @@ stock-analysis:
 app:
   cli:
     enabled: false
+  chat:
+    user-id: test-user

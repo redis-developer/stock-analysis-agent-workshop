@@ -3,6 +3,7 @@
 Last updated: 2026-03-16
 
 This file is the learner-facing companion to the implementation. As the project evolves, add new workshop parts here so the exercises stay aligned with the actual repository state.
+The current repository default is a chat-style CLI backed by Redis Agent Memory, even though the early parts below still describe the simpler slices learners build first.
 
 For delivery planning, pair this file with:
 
@@ -19,6 +20,7 @@ Learners should leave understanding how to:
 - keep orchestration in application code
 - fetch deterministic data from external providers
 - use Spring AI for interpretation and synthesis instead of factual retrieval
+- add memory at the user-chat boundary without turning the whole system into an opaque autonomous agent
 
 ## Part 1: Orchestration Foundation
 
@@ -716,6 +718,63 @@ Expected result:
 ### Teaching Point
 
 This slice extends the same tool-backed pattern into hybrid news retrieval without making the model responsible for search correctness. The LLM can choose the coarse news tool, but the actual SEC and Tavily retrieval still stays deterministic behind the cached provider layer.
+
+## Part 14: Redis Agent Memory Chat
+
+### Objective
+
+Turn the user experience into a real chat by adding Redis Agent Memory at the conversation boundary, while keeping the coordinator and specialist agents unchanged underneath.
+
+### What Learners Build
+
+1. A memory-backed chat service that becomes the main CLI entrypoint.
+2. A Spring AI `ChatMemoryRepository` backed by Redis Agent Memory Server.
+3. Short-term memory via `MessageChatMemoryAdvisor`.
+4. Long-term memory retrieval via a custom Spring AI advisor.
+5. A bounded chat tool that delegates back into the existing stock-analysis orchestration stack.
+6. A conversation id strategy that keeps `userId` and `sessionId` together.
+7. A local Docker Compose stack that includes Redis, Agent Memory Server, and Redis Insight.
+8. A chat loop with `/exit` and `/clear`.
+
+### Acceptance Criteria
+
+- the default CLI experience is conversational rather than one-shot
+- follow-up prompts can reuse prior context such as the current company or ticker
+- short-term memory is wired through Spring AI chat memory
+- long-term memory is queried through the custom advisor before model calls
+- the bounded stock-analysis tool still delegates to the explicit orchestration stack
+- the automated test suite still passes without requiring a live memory server
+
+### Automated Validation
+
+- run `./gradlew test`
+- verify there is a chat-service test covering the no-model fallback path
+
+### Manual Smoke Test
+
+Create `.env` from `.env.example` or export `OPENAI_API_KEY`, then start the local stack:
+
+```bash
+docker compose up -d redis agent-memory-server redis-insight
+./gradlew bootRun
+```
+
+Enter this sequence:
+
+- `What's the current price of Apple?`
+- `What about its fundamentals?`
+- `And any recent news?`
+
+Expected result:
+
+- the chat does not force you to repeat `AAPL`
+- the assistant can carry the company context across turns
+- the CLI shows memory usage information when the memory server returns it
+- `/clear` resets the current session memory
+
+### Teaching Point
+
+This slice shows where memory belongs in this architecture: at the user-chat boundary, not inside the handoffs between specialist agents. The chat layer gets memory and a bounded orchestration tool; the orchestration and provider layers stay explicit, testable, and grounded.
 
 ## Authoring Rule
 

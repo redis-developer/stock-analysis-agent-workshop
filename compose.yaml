@@ -1,16 +1,65 @@
 services:
+  agent-memory-server:
+    image: redislabs/agent-memory-server:latest
+    container_name: stock-analysis-agent-memory-server
+    ports:
+      - "8000:8000"
+    environment:
+      REDIS_URL: redis://localhost:6379
+      PORT: 8000
+      GENERATION_MODEL: ${AGENT_MEMORY_GENERATION_MODEL:-gpt-4o-mini}
+      EMBEDDING_MODEL: ${AGENT_MEMORY_EMBEDDING_MODEL:-text-embedding-3-small}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      LONG_TERM_MEMORY: "true"
+      ENABLE_TOPIC_EXTRACTION: "true"
+      SUMMARIZATION_THRESHOLD: 0.7
+      DEDUPLICATION_DISTANCE_THRESHOLD: 0.35
+      ENABLE_NER: "true"
+      DISABLE_AUTH: "true"
+    depends_on:
+      redis:
+        condition: service_healthy
+    command: ["agent-memory", "api", "--host", "0.0.0.0", "--port", "8000", "--task-backend=asyncio"]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/v1/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
   redis:
-    image: redis
+    image: redis/redis-stack-server:latest
     container_name: stock-analysis-agent-redis
     ports:
       - "6379:6379"
     volumes:
       - redis-data:/data
+    environment:
+      REDIS_ARGS: --appendonly yes
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
       timeout: 3s
       retries: 10
 
+  redis-insight:
+    image: redis/redisinsight:latest
+    container_name: stock-analysis-agent-redis-insight
+    ports:
+      - "5540:5540"
+    environment:
+      RI_REDIS_HOST: redis
+      RI_REDIS_PORT: 6379
+      RI_REDIS_ALIAS: Stock Analysis Redis
+      RI_REDIS_USERNAME: default
+      RI_REDIS_PASSWORD:
+      RI_REDIS_TLS: "FALSE"
+    volumes:
+      - redis-insight-data:/db
+    depends_on:
+      redis:
+        condition: service_healthy
+
 volumes:
   redis-data:
+  redis-insight-data:

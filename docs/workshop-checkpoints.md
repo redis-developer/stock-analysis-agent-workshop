@@ -8,6 +8,8 @@ Use this file as the practical delivery map for the workshop. Each checkpoint de
 - what the facilitator can provide up front
 - how to validate the slice before moving on
 
+The current repository default is a chat-style CLI backed by Redis Agent Memory, even though the earlier checkpoints below still describe the simpler slices learners build first.
+
 ## Checkpoint 1: Orchestration Foundation
 
 ### Learners Implement
@@ -407,6 +409,45 @@ Manual:
 
 This is the fourth specialist-agent conversion pattern. The LLM now controls a bounded hybrid-news tool inside `NewsAgent`, but the actual SEC and Tavily retrieval still stays deterministic behind the cache-aware provider layer.
 
+## Checkpoint 14: Redis Agent Memory Chat
+
+### Learners Implement
+
+- a chat-oriented CLI flow instead of a one-shot prompt
+- a Redis Agent Memory-backed `ChatMemoryRepository`
+- Spring AI short-term memory with `MessageChatMemoryAdvisor`
+- a custom long-term memory advisor
+- a bounded stock-analysis chat tool that delegates to the orchestration stack
+- a local Docker Compose setup for Redis, Agent Memory Server, and Redis Insight
+
+### Facilitator Provides
+
+- the coordinator and specialist-agent orchestration stack from earlier checkpoints
+- the existing Redis cache setup
+- a local config pattern through `application-local.properties`
+- `.env.example` for Docker Compose
+
+### Validation
+
+Automated:
+
+- `./gradlew test`
+- confirm there is a chat-service test covering fallback behavior without a live chat model
+
+Manual:
+
+- create `.env` from `.env.example` or export `OPENAI_API_KEY`
+- run `docker compose up -d redis agent-memory-server redis-insight`
+- run `./gradlew bootRun`
+- enter `What's the current price of Apple?`
+- then `What about its fundamentals?`
+- then `And any recent news?`
+- confirm the assistant carries the Apple context across turns without forcing the ticker to be repeated
+
+### Teaching Point
+
+This checkpoint makes the UX conversational without giving up the architecture we built earlier. Memory is added at the chat boundary, while the internal orchestration, provider seams, and specialist-agent contracts stay explicit and testable.
+
 ## Delivery Recommendation
 
 If time is tight, treat these as the must-hit live checkpoints:
@@ -421,3 +462,4 @@ If time is tight, treat these as the must-hit live checkpoints:
 8. Checkpoint 11 for the second tool-backed specialist agent
 9. Checkpoint 12 for the third tool-backed specialist agent
 10. Checkpoint 13 for the fourth tool-backed specialist agent
+11. Checkpoint 14 for conversational memory and chat

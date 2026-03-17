@@ -1,17 +1,19 @@
 # Stock Analysis Agent Workshop
 
 This repository is the final implementation target for a workshop about building a stock-analysis multi-agent orchestration application with Spring AI.
+The current default experience is a memory-backed chat CLI layered on top of the orchestration flow.
 
 ## Workshop Goal
 
 Build a predictable orchestration system where:
 
-- a client sends a stock-analysis request
+- a client can hold a stock-analysis conversation
 - a coordinator decides which specialized agents are relevant
 - agents fetch deterministic data from external providers
 - a synthesis step returns a grounded final answer
 - one agent failing does not crash the whole analysis
 - independent agents can fan out safely in parallel
+- chat memory supports follow-up questions across turns
 
 ## Current Direction
 
@@ -19,6 +21,7 @@ Build a predictable orchestration system where:
 - deterministic data providers over model-generated facts
 - Spring AI for interpretation and synthesis
 - free data sources where possible
+- memory-backed chat over one-shot prompts for the main workshop path
 
 ## Provider Strategy
 
@@ -51,12 +54,12 @@ STOCK_ANALYSIS_MARKET_DATA_PROVIDER=mock
 
 ## Local Infrastructure
 
-Redis is the current cache backend for external provider calls.
+Redis is the current cache backend for external provider calls, and the same local stack now also runs Redis Agent Memory for the chat session.
 
-Start it locally with:
+Create a local `.env` file from [/.env.example](/Users/raphaeldelio/Documents/GitHub/stock-analysis-agent/.env.example) or export `OPENAI_API_KEY` in your shell, then start the local stack with:
 
 ```bash
-docker compose up -d redis
+docker compose up -d redis agent-memory-server redis-insight
 ```
 
 The repository includes [compose.yaml](/Users/raphaeldelio/Documents/GitHub/stock-analysis-agent/compose.yaml) for that setup.
@@ -66,6 +69,7 @@ The repository includes [compose.yaml](/Users/raphaeldelio/Documents/GitHub/stoc
 For local development, you can keep secrets and per-machine settings in a git-ignored file at the repo root:
 
 - [application-local.properties.example](/Users/raphaeldelio/Documents/GitHub/stock-analysis-agent/application-local.properties.example)
+- [/.env.example](/Users/raphaeldelio/Documents/GitHub/stock-analysis-agent/.env.example)
 
 Create `application-local.properties` and add values like:
 
@@ -74,21 +78,22 @@ spring.ai.openai.api-key=YOUR_OPENAI_KEY
 stock-analysis.market-data.twelve-data.api-key=YOUR_TWELVE_DATA_API_KEY
 stock-analysis.news.tavily.api-key=YOUR_TAVILY_API_KEY
 stock-analysis.sec.user-agent=stock-analysis-agent your-email@example.com
+agent-memory.server.url=http://localhost:8000
 ```
 
 The app will load that file automatically if it exists.
+Docker Compose reads `.env`, so that is the right place for `OPENAI_API_KEY` when starting `agent-memory-server`.
 If you ever want to bypass Redis locally, you can set `spring.cache.type=simple`.
 
 ## Non-Goals For The First Slice
 
 - UI
-- chat memory
 - autonomous planning
 - generic agent framework abstractions
 - multiple model providers
 - Slack interfaces
 
-## Current API
+## Current Interfaces
 
 `POST /analysis`
 
@@ -99,7 +104,9 @@ If you ever want to bypass Redis locally, you can set `spring.cache.type=simple`
 }
 ```
 
-The first slice returns:
+The REST API remains the stateless, one-shot integration surface.
+
+It returns:
 
 - the execution plan
 - current agent execution status
@@ -109,94 +116,72 @@ The first slice returns:
 - a technical-analysis snapshot when technical analysis is selected
 - a grounded response based on the currently implemented agents
 
-When multiple specialized agents are selected, `SynthesisAgent` now uses Spring AI to produce the final grounded response from the structured agent outputs. In test and no-model setups, it falls back to a deterministic synthesis so the workshop remains runnable.
-The orchestration layer now dispatches agents dynamically from the execution plan and degrades cleanly when one selected agent fails.
-Independent agents now fan out through `CompletableFuture` on a Spring-managed executor, while synthesis still waits for the selected analysis tasks to finish.
-External provider calls now go through a Redis-backed cache layer so repeated market, SEC, and Tavily lookups are not triggered unnecessarily.
-`MarketDataAgent` is now the first tool-backed specialist agent: it uses Spring AI tool-calling on top of the cached market-data provider instead of fetching quotes directly in plain service code.
-`FundamentalsAgent` now follows the same pattern: it uses Spring AI tool-calling on top of the cached SEC fundamentals provider and can reuse market context from orchestration when it is already available.
-`TechnicalAnalysisAgent` now follows the same pattern too: it uses Spring AI tool-calling on top of the cached technical-analysis provider while keeping the actual indicator calculations in Java.
-`NewsAgent` now follows the same pattern too: it uses Spring AI tool-calling on top of the cached hybrid news provider while keeping the actual SEC-plus-Tavily retrieval deterministic.
+The primary workshop path is now the CLI chat:
+
+- user messages go through a memory-backed `ChatClient`
+- Spring AI advisors inject short-term and long-term memory
+- the chat layer calls the orchestration stack through a bounded stock-analysis tool
+- the underlying coordinator, specialized agents, and synthesis flow remain explicit application code
+
+When multiple specialized agents are selected, `SynthesisAgent` uses Spring AI to produce the final grounded response from the structured agent outputs. In test and no-model setups, it falls back to a deterministic synthesis so the workshop remains runnable.
+The orchestration layer dispatches agents dynamically from the execution plan and degrades cleanly when one selected agent fails.
+Independent agents fan out through `CompletableFuture` on a Spring-managed executor, while synthesis still waits for the selected analysis tasks to finish.
+External provider calls go through a Redis-backed cache layer so repeated market, SEC, and Tavily lookups are not triggered unnecessarily.
+`MarketDataAgent`, `FundamentalsAgent`, `TechnicalAnalysisAgent`, and `NewsAgent` are now tool-backed specialist agents that use Spring AI over the cached provider layer.
 
 ## CLI Mode
 
-You can also test the current slice through the CLI:
+You can test the current system through the memory-backed chat CLI:
 
 ```bash
 ./gradlew bootRun
 ```
 
-The CLI will prompt for one free-form request in the terminal.
-The CLI accepts one free-form request and the coordinator can ask follow-up questions if information is missing.
+The CLI starts a chat session and stores memory under a conversation id shaped like `userId:sessionId`.
+The chat layer uses:
 
-Example:
+- Spring AI `MessageChatMemoryAdvisor` for working memory
+- a custom `LongTermMemoryAdvisor` backed by Redis Agent Memory
+- a single stock-analysis tool that delegates to the existing orchestration stack
 
-- `What's the current price?` -> coordinator asks which ticker
-- `AAPL` -> coordinator completes the request and routes the agents
+Useful commands:
 
-If you want to run the original workshop slice with mock market data instead:
+- `/exit` ends the session
+- `/clear` clears the current chat memory
+
+To run the full local chat stack:
 
 ```bash
-STOCK_ANALYSIS_MARKET_DATA_PROVIDER=mock \
+docker compose up -d redis agent-memory-server redis-insight
 ./gradlew bootRun
 ```
 
-When Twelve Data mode is active, the CLI output should show `Source: twelve-data`.
-When mock mode is active, it should show `Source: mock`.
+Recommended chat prompts:
 
-To run a fundamentals-only question backed by the SEC APIs:
+- `What's the current price of Apple?`
+- `What about its fundamentals?`
+- `And any recent news?`
+- `What do the technicals look like?`
+- `Give me a full view with price, fundamentals, news, and technical analysis`
+
+You should not need to repeat `AAPL` once the conversation already established the company.
+When memory is active, the CLI also prints working-memory usage and any retrieved long-term memories returned by the advisor layer.
+
+If you want to run the chat layer without the live Redis-backed provider cache, you can fall back to simple local caching:
 
 ```bash
+SPRING_CACHE_TYPE=simple \
 ./gradlew bootRun
 ```
 
-Then ask:
-
-- `How do AAPL fundamentals look?`
-
-The CLI should execute `FUNDAMENTALS` and print a fundamentals snapshot with `Source: sec`.
-
-To run a news-focused question with official SEC signals and optional Tavily web search:
+If you want to run the HTTP API instead of the chat CLI, disable CLI mode explicitly:
 
 ```bash
-./gradlew bootRun
+./gradlew bootRun --args='--app.cli.enabled=false'
 ```
-
-Then ask:
-
-- `What recent news should I know about Apple?`
-
-The CLI should execute `NEWS` and print a recent filing snapshot with `Source: sec`.
-If a Tavily key is configured, the CLI should also print a `Web news` section and the source should become `sec+tavily`.
-This hybrid setup keeps official SEC disclosures while adding broader investor-relevant web coverage.
-
-To run a technical-analysis question backed by Twelve Data time series:
-
-```bash
-./gradlew bootRun
-```
-
-Then ask:
-
-- `What do the technicals look like for Apple?`
-
-The CLI should execute `TECHNICAL_ANALYSIS` and print indicators such as `SMA(20)`, `EMA(20)`, and `RSI(14)` with `Source: twelve-data`.
-
-To run a broad multi-agent question that exercises the LLM-backed synthesis step:
-
-```bash
-./gradlew bootRun
-```
-
-Then ask:
-
-- `Give me a full view on Apple with fundamentals, news, and technical analysis`
-
-With a configured chat model, the final answer should be synthesized by the model from the structured outputs of the specialized agents.
-The CLI still prints execution summaries in a stable order for readability, but the selected agents now execute concurrently under the hood when they do not depend on each other.
 
 `OPENAI_API_KEY` is the preferred env var for this repo. `SPRING_AI_OPENAI_API_KEY` also works.
-Environment variables still work, but `application-local.properties` is the simplest local setup.
+Environment variables still work, but `application-local.properties` plus `.env` is the simplest local setup.
 
 If you want to validate the workshop slice without model credentials, use:
 
@@ -228,10 +213,4 @@ For a packaged jar:
 
 ```bash
 java --enable-native-access=ALL-UNNAMED -jar build/libs/stock-analysis-agent-0.0.1-SNAPSHOT.jar
-```
-
-If you want to run the HTTP API instead of the CLI, disable CLI mode explicitly:
-
-```bash
-./gradlew bootRun --args='--app.cli.enabled=false'
 ```

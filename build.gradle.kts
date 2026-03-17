@@ -16,6 +16,7 @@ java {
 
 repositories {
     mavenCentral()
+    maven { url = uri("https://repo.spring.io/milestone") }
 }
 
 extra["springAiVersion"] = "2.0.0-M2"
@@ -25,7 +26,9 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-data-redis")
     implementation("org.springframework.boot:spring-boot-starter-validation")
     implementation("org.springframework.boot:spring-boot-starter-web")
+    implementation("org.springframework.boot:spring-boot-starter-webflux")
     implementation("org.springframework.ai:spring-ai-starter-model-openai")
+    implementation("com.redis:agent-memory-client-java:0.1.0")
     runtimeOnly("io.netty:netty-resolver-dns-native-macos") {
         artifact {
             classifier = "osx-aarch_64"
