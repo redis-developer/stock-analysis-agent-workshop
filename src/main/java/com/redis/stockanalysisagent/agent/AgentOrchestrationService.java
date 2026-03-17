@@ -24,11 +24,13 @@ import org.springframework.stereotype.Service;
 
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
+import java.util.EnumMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.function.Function;
 import java.util.function.Supplier;
 
 @Service
@@ -92,10 +94,10 @@ public class AgentOrchestrationService {
                 OffsetDateTime.now(),
                 executionPlan,
                 List.copyOf(state.agentExecutions),
-                state.marketSnapshot,
-                state.fundamentalsSnapshot,
-                state.newsSnapshot,
-                state.technicalAnalysisSnapshot,
+                structuredOutput(state, AgentType.MARKET_DATA, MarketSnapshot.class),
+                structuredOutput(state, AgentType.FUNDAMENTALS, FundamentalsSnapshot.class),
+                structuredOutput(state, AgentType.NEWS, NewsSnapshot.class),
+                structuredOutput(state, AgentType.TECHNICAL_ANALYSIS, TechnicalAnalysisSnapshot.class),
                 answer,
                 List.copyOf(state.limitations)
         );
@@ -123,7 +125,10 @@ public class AgentOrchestrationService {
             CompletableFuture<AgentExecutionOutcome> future = switch (agentType) {
                 case FUNDAMENTALS -> marketFuture != null
                         ? marketFuture.thenApplyAsync(
-                                marketOutcome -> executeFundamentals(request, marketOutcome.marketSnapshot),
+                                marketOutcome -> executeFundamentals(
+                                        request,
+                                        marketOutcome.output() instanceof MarketSnapshot snapshot ? snapshot : null
+                                ),
                                 agentTaskExecutor
                         ).exceptionally(ex -> failedOutcome(AgentType.FUNDAMENTALS, ex))
                         : submitAsync(AgentType.FUNDAMENTALS, () -> executeFundamentals(request, null));
@@ -173,15 +178,8 @@ public class AgentOrchestrationService {
                             AgentExecutionStatus.COMPLETED,
                             "Market Data Agent used its market-data tools to fetch a current snapshot."
                     ),
-                    null,
-                    marketDataResult.getMessage(),
-                    null,
-                    null,
-                    null,
                     marketDataResult.getFinalResponse(),
-                    null,
-                    null,
-                    null
+                    marketDataResult.getMessage()
             );
         } catch (RuntimeException ex) {
             return failedOutcome(AgentType.MARKET_DATA, ex);
@@ -202,15 +200,8 @@ public class AgentOrchestrationService {
                                     ? "Fundamentals Agent used its fundamentals tool with market-price context."
                                     : "Fundamentals Agent used its fundamentals tool to fetch a normalized snapshot."
                     ),
-                    null,
-                    null,
-                    fundamentalsResult.getMessage(),
-                    null,
-                    null,
-                    null,
                     fundamentalsResult.getFinalResponse(),
-                    null,
-                    null
+                    fundamentalsResult.getMessage()
             );
         } catch (RuntimeException ex) {
             return failedOutcome(AgentType.FUNDAMENTALS, ex);
@@ -226,15 +217,8 @@ public class AgentOrchestrationService {
                             AgentExecutionStatus.COMPLETED,
                             "News Agent used its news tool to fetch a hybrid news snapshot."
                     ),
-                    null,
-                    null,
-                    null,
-                    newsResult.getMessage(),
-                    null,
-                    null,
-                    null,
                     newsResult.getFinalResponse(),
-                    null
+                    newsResult.getMessage()
             );
         } catch (RuntimeException ex) {
             return failedOutcome(AgentType.NEWS, ex);
@@ -250,15 +234,8 @@ public class AgentOrchestrationService {
                             AgentExecutionStatus.COMPLETED,
                             "Technical Analysis Agent used its technical-analysis tool to fetch a normalized snapshot."
                     ),
-                    null,
-                    null,
-                    null,
-                    null,
-                    technicalAnalysisResult.getMessage(),
-                    null,
-                    null,
-                    null,
-                    technicalAnalysisResult.getFinalResponse()
+                    technicalAnalysisResult.getFinalResponse(),
+                    technicalAnalysisResult.getMessage()
             );
         } catch (RuntimeException ex) {
             return failedOutcome(AgentType.TECHNICAL_ANALYSIS, ex);
@@ -268,92 +245,51 @@ public class AgentOrchestrationService {
     private AgentExecutionOutcome failedOutcome(AgentType agentType, Throwable throwable) {
         Throwable normalizedThrowable = unwrapThrowable(throwable);
         String normalizedError = normalizeErrorMessage(normalizedThrowable);
-        return new AgentExecutionOutcome(
+        return AgentExecutionOutcome.failed(
                 new AgentExecution(
                         agentType,
                         AgentExecutionStatus.FAILED,
                         "%s failed: %s".formatted(agentLabel(agentType), normalizedError)
                 ),
-                "%s failed: %s".formatted(agentType, normalizedError),
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null
+                "%s failed: %s".formatted(agentType, normalizedError)
         );
     }
 
     private void mergeOutcome(ExecutionState state, AgentExecutionOutcome outcome) {
-        state.agentExecutions.add(outcome.execution);
-        if (outcome.limitations != null) {
-            state.limitations.add(outcome.limitations);
+        state.agentExecutions.add(outcome.execution());
+        if (outcome.limitation() != null) {
+            state.limitations.add(outcome.limitation());
         }
-        if (outcome.marketDirectAnswer != null && !outcome.marketDirectAnswer.isBlank()) {
-            state.marketDirectAnswer = outcome.marketDirectAnswer;
+        if (outcome.output() != null) {
+            state.structuredOutputs.put(outcome.execution().agentType(), outcome.output());
         }
-        if (outcome.marketSnapshot != null) {
-            state.marketSnapshot = outcome.marketSnapshot;
-        }
-        if (outcome.fundamentalsDirectAnswer != null && !outcome.fundamentalsDirectAnswer.isBlank()) {
-            state.fundamentalsDirectAnswer = outcome.fundamentalsDirectAnswer;
-        }
-        if (outcome.fundamentalsSnapshot != null) {
-            state.fundamentalsSnapshot = outcome.fundamentalsSnapshot;
-        }
-        if (outcome.newsSnapshot != null) {
-            state.newsSnapshot = outcome.newsSnapshot;
-        }
-        if (outcome.newsDirectAnswer != null && !outcome.newsDirectAnswer.isBlank()) {
-            state.newsDirectAnswer = outcome.newsDirectAnswer;
-        }
-        if (outcome.technicalDirectAnswer != null && !outcome.technicalDirectAnswer.isBlank()) {
-            state.technicalDirectAnswer = outcome.technicalDirectAnswer;
-        }
-        if (outcome.technicalAnalysisSnapshot != null) {
-            state.technicalAnalysisSnapshot = outcome.technicalAnalysisSnapshot;
+        if (outcome.directAnswer() != null && !outcome.directAnswer().isBlank()) {
+            state.directAnswers.put(outcome.execution().agentType(), outcome.directAnswer());
         }
     }
 
     private String buildAnswer(AnalysisRequest request, ExecutionPlan executionPlan, ExecutionState state) {
-        if (shouldUseDirectMarketAnswer(executionPlan, state.marketSnapshot)) {
-            if (state.marketDirectAnswer != null && !state.marketDirectAnswer.isBlank()) {
-                return state.marketDirectAnswer;
-            }
-            return marketDataAgent.createDirectAnswer(state.marketSnapshot);
-        }
-
-        if (shouldUseDirectFundamentalsAnswer(executionPlan, state.fundamentalsSnapshot)) {
-            if (state.fundamentalsDirectAnswer != null && !state.fundamentalsDirectAnswer.isBlank()) {
-                return state.fundamentalsDirectAnswer;
-            }
-            return fundamentalsAgent.createDirectAnswer(state.fundamentalsSnapshot);
-        }
-
-        if (shouldUseDirectNewsAnswer(executionPlan, state.newsSnapshot)) {
-            if (state.newsDirectAnswer != null && !state.newsDirectAnswer.isBlank()) {
-                return state.newsDirectAnswer;
-            }
-            return newsAgent.createDirectAnswer(state.newsSnapshot);
-        }
-
-        if (shouldUseDirectTechnicalAnswer(executionPlan, state.technicalAnalysisSnapshot)) {
-            if (state.technicalDirectAnswer != null && !state.technicalDirectAnswer.isBlank()) {
-                return state.technicalDirectAnswer;
-            }
-            return technicalAnalysisAgent.createDirectAnswer(state.technicalAnalysisSnapshot);
+        String directAnswer = resolveDirectAnswer(executionPlan, state);
+        if (directAnswer != null) {
+            return directAnswer;
         }
 
         if (hasAnyStructuredOutputs(state)) {
+            MarketSnapshot marketSnapshot = structuredOutput(state, AgentType.MARKET_DATA, MarketSnapshot.class);
+            FundamentalsSnapshot fundamentalsSnapshot = structuredOutput(state, AgentType.FUNDAMENTALS, FundamentalsSnapshot.class);
+            NewsSnapshot newsSnapshot = structuredOutput(state, AgentType.NEWS, NewsSnapshot.class);
+            TechnicalAnalysisSnapshot technicalAnalysisSnapshot = structuredOutput(
+                    state,
+                    AgentType.TECHNICAL_ANALYSIS,
+                    TechnicalAnalysisSnapshot.class
+            );
             String synthesizedAnswer = synthesisAgent.synthesize(
                     request,
                     executionPlan,
-                    state.marketSnapshot,
-                    state.fundamentalsSnapshot,
-                    state.newsSnapshot,
-                    state.technicalAnalysisSnapshot,
+                    marketSnapshot,
+                    fundamentalsSnapshot,
+                    newsSnapshot,
+                    technicalAnalysisSnapshot,
                     state.agentExecutions
             );
 
@@ -384,10 +320,7 @@ public class AgentOrchestrationService {
     }
 
     private boolean hasAnyStructuredOutputs(ExecutionState state) {
-        return state.marketSnapshot != null
-                || state.fundamentalsSnapshot != null
-                || state.newsSnapshot != null
-                || state.technicalAnalysisSnapshot != null;
+        return !state.structuredOutputs.isEmpty();
     }
 
     private String agentLabel(AgentType agentType) {
@@ -430,113 +363,87 @@ public class AgentOrchestrationService {
         return "The coordinator could not complete the request.";
     }
 
-    private boolean shouldUseDirectMarketAnswer(ExecutionPlan executionPlan, MarketSnapshot marketSnapshot) {
-        return marketSnapshot != null
-                && !executionPlan.requiresSynthesis()
-                && executionPlan.selectedAgents().size() == 1
-                && executionPlan.selectedAgents().contains(AgentType.MARKET_DATA);
+    private String resolveDirectAnswer(ExecutionPlan executionPlan, ExecutionState state) {
+        if (executionPlan.requiresSynthesis() || executionPlan.selectedAgents().size() != 1) {
+            return null;
+        }
+
+        AgentType selectedAgent = executionPlan.selectedAgents().get(0);
+        return switch (selectedAgent) {
+            case MARKET_DATA -> directAnswer(
+                    state,
+                    AgentType.MARKET_DATA,
+                    MarketSnapshot.class,
+                    marketDataAgent::createDirectAnswer
+            );
+            case FUNDAMENTALS -> directAnswer(
+                    state,
+                    AgentType.FUNDAMENTALS,
+                    FundamentalsSnapshot.class,
+                    fundamentalsAgent::createDirectAnswer
+            );
+            case NEWS -> directAnswer(
+                    state,
+                    AgentType.NEWS,
+                    NewsSnapshot.class,
+                    newsAgent::createDirectAnswer
+            );
+            case TECHNICAL_ANALYSIS -> directAnswer(
+                    state,
+                    AgentType.TECHNICAL_ANALYSIS,
+                    TechnicalAnalysisSnapshot.class,
+                    technicalAnalysisAgent::createDirectAnswer
+            );
+            case SYNTHESIS -> null;
+        };
     }
 
-    private boolean shouldUseDirectFundamentalsAnswer(
-            ExecutionPlan executionPlan,
-            FundamentalsSnapshot fundamentalsSnapshot
+    private <T> T structuredOutput(ExecutionState state, AgentType agentType, Class<T> outputType) {
+        Object output = state.structuredOutputs.get(agentType);
+        if (outputType.isInstance(output)) {
+            return outputType.cast(output);
+        }
+        return null;
+    }
+
+    private <T> String directAnswer(
+            ExecutionState state,
+            AgentType agentType,
+            Class<T> outputType,
+            Function<T, String> fallback
     ) {
-        return fundamentalsSnapshot != null
-                && !executionPlan.requiresSynthesis()
-                && executionPlan.selectedAgents().size() == 1
-                && executionPlan.selectedAgents().contains(AgentType.FUNDAMENTALS);
-    }
+        T output = structuredOutput(state, agentType, outputType);
+        if (output == null) {
+            return null;
+        }
 
-    private boolean shouldUseDirectNewsAnswer(ExecutionPlan executionPlan, NewsSnapshot newsSnapshot) {
-        return newsSnapshot != null
-                && !executionPlan.requiresSynthesis()
-                && executionPlan.selectedAgents().size() == 1
-                && executionPlan.selectedAgents().contains(AgentType.NEWS);
-    }
+        String directAnswer = state.directAnswers.get(agentType);
+        if (directAnswer != null && !directAnswer.isBlank()) {
+            return directAnswer;
+        }
 
-    private boolean shouldUseDirectTechnicalAnswer(
-            ExecutionPlan executionPlan,
-            TechnicalAnalysisSnapshot technicalAnalysisSnapshot
-    ) {
-        return technicalAnalysisSnapshot != null
-                && !executionPlan.requiresSynthesis()
-                && executionPlan.selectedAgents().size() == 1
-                && executionPlan.selectedAgents().contains(AgentType.TECHNICAL_ANALYSIS);
+        return fallback.apply(output);
     }
 
     private static class ExecutionState {
         private final List<AgentExecution> agentExecutions = new ArrayList<>();
         private final List<String> limitations = new ArrayList<>();
-        private String marketDirectAnswer;
-        private String fundamentalsDirectAnswer;
-        private String newsDirectAnswer;
-        private String technicalDirectAnswer;
-        private MarketSnapshot marketSnapshot;
-        private FundamentalsSnapshot fundamentalsSnapshot;
-        private NewsSnapshot newsSnapshot;
-        private TechnicalAnalysisSnapshot technicalAnalysisSnapshot;
+        private final Map<AgentType, Object> structuredOutputs = new EnumMap<>(AgentType.class);
+        private final Map<AgentType, String> directAnswers = new EnumMap<>(AgentType.class);
     }
 
-    private static class AgentExecutionOutcome {
-        private final AgentExecution execution;
-        private final String limitations;
-        private final String marketDirectAnswer;
-        private final String fundamentalsDirectAnswer;
-        private final String newsDirectAnswer;
-        private final String technicalDirectAnswer;
-        private final MarketSnapshot marketSnapshot;
-        private final FundamentalsSnapshot fundamentalsSnapshot;
-        private final NewsSnapshot newsSnapshot;
-        private final TechnicalAnalysisSnapshot technicalAnalysisSnapshot;
-
-        private AgentExecutionOutcome(
-                AgentExecution execution,
-                String limitations,
-                String marketDirectAnswer,
-                String fundamentalsDirectAnswer,
-                String newsDirectAnswer,
-                String technicalDirectAnswer,
-                MarketSnapshot marketSnapshot,
-                FundamentalsSnapshot fundamentalsSnapshot,
-                NewsSnapshot newsSnapshot,
-                TechnicalAnalysisSnapshot technicalAnalysisSnapshot
-        ) {
-            this.execution = execution;
-            this.limitations = limitations;
-            this.marketDirectAnswer = marketDirectAnswer;
-            this.fundamentalsDirectAnswer = fundamentalsDirectAnswer;
-            this.newsDirectAnswer = newsDirectAnswer;
-            this.technicalDirectAnswer = technicalDirectAnswer;
-            this.marketSnapshot = marketSnapshot;
-            this.fundamentalsSnapshot = fundamentalsSnapshot;
-            this.newsSnapshot = newsSnapshot;
-            this.technicalAnalysisSnapshot = technicalAnalysisSnapshot;
+    private record AgentExecutionOutcome(
+            AgentExecution execution,
+            String limitation,
+            Object output,
+            String directAnswer
+    ) {
+        private static AgentExecutionOutcome completed(AgentExecution execution, Object output, String directAnswer) {
+            return new AgentExecutionOutcome(execution, null, output, directAnswer);
         }
 
-        private static AgentExecutionOutcome completed(
-                AgentExecution execution,
-                String limitation,
-                String marketDirectAnswer,
-                String fundamentalsDirectAnswer,
-                String newsDirectAnswer,
-                String technicalDirectAnswer,
-                MarketSnapshot marketSnapshot,
-                FundamentalsSnapshot fundamentalsSnapshot,
-                NewsSnapshot newsSnapshot,
-                TechnicalAnalysisSnapshot technicalAnalysisSnapshot
-        ) {
-            return new AgentExecutionOutcome(
-                    execution,
-                    limitation,
-                    marketDirectAnswer,
-                    fundamentalsDirectAnswer,
-                    newsDirectAnswer,
-                    technicalDirectAnswer,
-                    marketSnapshot,
-                    fundamentalsSnapshot,
-                    newsSnapshot,
-                    technicalAnalysisSnapshot
-            );
+        private static AgentExecutionOutcome failed(AgentExecution execution, String limitation) {
+            return new AgentExecutionOutcome(execution, limitation, null, null);
         }
     }
 }
