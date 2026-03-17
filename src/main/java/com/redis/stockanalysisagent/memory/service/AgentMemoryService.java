@@ -1,11 +1,8 @@
 package com.redis.stockanalysisagent.memory.service;
 
 import com.redis.agentmemory.MemoryAPIClient;
-import com.redis.agentmemory.models.common.AckResponse;
-import com.redis.agentmemory.models.health.HealthCheckResponse;
-import com.redis.agentmemory.models.longtermemory.MemoryRecord;
+import com.redis.agentmemory.exceptions.MemoryClientException;
 import com.redis.agentmemory.models.longtermemory.MemoryRecordResults;
-import com.redis.agentmemory.models.longtermemory.MemoryType;
 import com.redis.agentmemory.models.longtermemory.SearchRequest;
 import com.redis.agentmemory.models.workingmemory.MemoryMessage;
 import com.redis.agentmemory.models.workingmemory.WorkingMemory;
@@ -31,118 +28,92 @@ public class AgentMemoryService {
     }
 
     public WorkingMemoryResponse getWorkingMemory(String sessionId, String userId, String modelName) {
-        try {
-            return client.workingMemory().getWorkingMemory(
-                    sessionId,
-                    userId,
-                    namespace,
-                    modelName,
-                    null
-            );
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to get working memory", e);
-        }
+        return call("get working memory", () -> client.workingMemory().getWorkingMemory(
+                sessionId,
+                userId,
+                namespace,
+                modelName,
+                null
+        ));
     }
 
     public List<String> listSessions() {
-        try {
-            SessionListResponse response = client.workingMemory().listSessions();
-            return response != null && response.getSessions() != null ? response.getSessions() : List.of();
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to list working-memory sessions", e);
-        }
+        SessionListResponse response = call("list working-memory sessions", () -> client.workingMemory().listSessions());
+        return response != null && response.getSessions() != null ? response.getSessions() : List.of();
     }
 
-    public WorkingMemoryResponse appendMessagesToWorkingMemory(
+    public void appendMessagesToWorkingMemory(
             String sessionId,
             List<MemoryMessage> messages,
             String userId,
             String modelName
     ) {
-        try {
-            return client.workingMemory().appendMessagesToWorkingMemory(
-                    sessionId,
-                    messages,
-                    namespace,
-                    modelName,
-                    null,
-                    userId
-            );
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to append working-memory messages", e);
-        }
+        run("append working-memory messages", () -> client.workingMemory().appendMessagesToWorkingMemory(
+                sessionId,
+                messages,
+                namespace,
+                modelName,
+                null,
+                userId
+        ));
     }
 
-    public WorkingMemoryResponse putWorkingMemory(
+    public void putWorkingMemory(
             String sessionId,
             WorkingMemory memory,
             String userId,
             String modelName
     ) {
-        try {
-            return client.workingMemory().putWorkingMemory(
-                    sessionId,
-                    memory,
-                    userId,
-                    namespace,
-                    modelName,
-                    null
-            );
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to put working memory", e);
-        }
+        run("put working memory", () -> client.workingMemory().putWorkingMemory(
+                sessionId,
+                memory,
+                userId,
+                namespace,
+                modelName,
+                null
+        ));
     }
 
-    public AckResponse deleteWorkingMemory(String sessionId, String userId) {
-        try {
-            return client.workingMemory().deleteWorkingMemory(sessionId, userId, namespace);
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to delete working memory", e);
-        }
+    public void deleteWorkingMemory(String sessionId, String userId) {
+        run("delete working memory", () -> client.workingMemory().deleteWorkingMemory(sessionId, userId, namespace));
     }
 
     public MemoryRecordResults searchLongTermMemory(String text, String userId, int limit) {
-        try {
-            SearchRequest request = SearchRequest.builder()
-                    .text(text)
-                    .userId(userId)
-                    .limit(limit)
-                    .build();
-            return client.longTermMemory().searchLongTermMemories(request);
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to search long-term memory", e);
-        }
-    }
-
-    public HealthCheckResponse healthCheck() {
-        try {
-            return client.health().healthCheck();
-        } catch (Exception e) {
-            throw new RuntimeException("Health check failed", e);
-        }
-    }
-
-    public static MemoryMessage createMessage(String role, String content) {
-        return MemoryMessage.builder()
-                .role(role)
-                .content(content)
-                .build();
-    }
-
-    public static MemoryRecord createMemoryRecord(String text, String sessionId, String userId) {
-        return MemoryRecord.builder()
+        SearchRequest request = SearchRequest.builder()
                 .text(text)
-                .sessionId(sessionId)
                 .userId(userId)
-                .memoryType(MemoryType.SEMANTIC)
+                .limit(limit)
                 .build();
+        return call("search long-term memory", () -> client.longTermMemory().searchLongTermMemories(request));
     }
 
     public String namespace() {
         return namespace;
     }
 
-    public MemoryAPIClient client() {
-        return client;
+    private <T> T call(String action, MemoryCall<T> operation) {
+        try {
+            return operation.execute();
+        } catch (MemoryClientException e) {
+            throw new RuntimeException("Failed to " + action, e);
+        }
+    }
+
+    private void run(String action, MemoryAction operation) {
+        try {
+            operation.execute();
+        } catch (MemoryClientException e) {
+            throw new RuntimeException("Failed to " + action, e);
+        }
+    }
+
+    @FunctionalInterface
+    private interface MemoryCall<T> {
+        T execute() throws MemoryClientException;
+    }
+
+    @FunctionalInterface
+    private interface MemoryAction {
+        void execute() throws MemoryClientException;
     }
 }
