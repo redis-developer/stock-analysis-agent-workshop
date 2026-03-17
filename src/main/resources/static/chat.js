@@ -285,13 +285,23 @@
     }
 
     function buildMemoryPanel(memories) {
-        const wrapper = document.createElement("div");
+        const wrapper = document.createElement("details");
         wrapper.className = "message__memories";
 
-        const label = document.createElement("div");
+        const summary = document.createElement("summary");
+        summary.className = "message__memories-summary";
+
+        const label = document.createElement("span");
         label.className = "message__memories-label";
         label.textContent = "Retrieved memories";
-        wrapper.appendChild(label);
+        summary.appendChild(label);
+
+        const count = document.createElement("span");
+        count.className = "message__memories-count";
+        count.textContent = String(memories.length);
+        summary.appendChild(count);
+
+        wrapper.appendChild(summary);
 
         const list = document.createElement("ul");
         for (const memory of memories) {

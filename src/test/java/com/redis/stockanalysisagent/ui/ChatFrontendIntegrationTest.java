@@ -27,7 +27,7 @@ class ChatFrontendIntegrationTest {
         assertThat(page).contains("Ask the stock agent anything");
         assertThat(page).contains("chat.css");
         assertThat(page).contains("chat.js");
-        assertThat(page).contains("same memory-backed chat flow as the CLI");
+        assertThat(page).contains("follow up without repeating the company every turn");
         assertThat(page).doesNotContain("placeholder=\"AAPL\"");
         assertThat(page).contains("id=\"user-id-input\"");
         assertThat(page).contains("id=\"session-id-value\"");
