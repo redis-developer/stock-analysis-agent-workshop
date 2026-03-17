@@ -280,9 +280,7 @@ public class AgentOrchestrationService {
                     state.agentExecutions
             );
 
-            if (executionPlan.requiresSynthesis()) {
-                state.agentExecutions.add(completedExecution(AgentType.SYNTHESIS, elapsedDurationMs(synthesisStartedAt)));
-            }
+            state.agentExecutions.add(completedExecution(AgentType.SYNTHESIS, elapsedDurationMs(synthesisStartedAt)));
 
             return synthesizedAnswer;
         }

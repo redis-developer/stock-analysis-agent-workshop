@@ -1,6 +1,5 @@
 package com.redis.stockanalysisagent.chat;
 
-import com.redis.stockanalysisagent.agent.AgentExecution;
 import com.redis.stockanalysisagent.memory.AmsChatMemoryRepository;
 import com.redis.stockanalysisagent.memory.LongTermMemoryAdvisor;
 import org.slf4j.Logger;
@@ -26,6 +25,8 @@ public class StockAnalysisChatService {
 
             RULES
             - Use the available stock-analysis tool for questions about stocks, companies, prices, fundamentals, news, technicals, or combined investment analysis.
+            - For an in-scope stock-analysis user turn, make at most one stock-analysis tool call and pass the full request through intact.
+            - Do not split one user request into separate fundamentals, news, or technical tool calls. Let the stock-analysis tool coordinate the needed sub-agents.
             - Use conversation memory to resolve follow-up references like "it", "the same company", or "what about technicals?".
             - If the tool returns a clarification question, ask it directly and briefly.
             - If the tool returns an analysis, present it clearly and conversationally without inventing extra facts.
@@ -124,7 +125,7 @@ public class StockAnalysisChatService {
             String response,
             List<String> retrievedMemories,
             boolean fromSemanticCache,
-            List<AgentExecution> triggeredAgents
+            List<ChatExecutionStep> triggeredAgents
     ) {
     }
 }

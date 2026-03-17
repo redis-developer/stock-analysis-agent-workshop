@@ -1,8 +1,6 @@
 package com.redis.stockanalysisagent.chat.api;
 
-import com.redis.stockanalysisagent.agent.AgentExecution;
-import com.redis.stockanalysisagent.agent.AgentExecutionStatus;
-import com.redis.stockanalysisagent.agent.AgentType;
+import com.redis.stockanalysisagent.chat.ChatExecutionStep;
 import com.redis.stockanalysisagent.chat.StockAnalysisChatService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -50,7 +48,7 @@ class ChatControllerIntegrationTest {
                         "Apple is trading at $200.00.",
                         List.of("The user asked about Apple earlier."),
                         true,
-                        List.of(new AgentExecution(AgentType.MARKET_DATA, AgentExecutionStatus.COMPLETED, "ok", 320))
+                        List.of(new ChatExecutionStep("MARKET_DATA", 320))
                 ));
 
         ChatResponse response = client().post()
@@ -68,9 +66,9 @@ class ChatControllerIntegrationTest {
         assertThat(response.fromSemanticCache()).isTrue();
         assertThat(response.triggeredAgents())
                 .singleElement()
-                .satisfies(agentExecution -> {
-                    assertThat(agentExecution.agentType()).isEqualTo(AgentType.MARKET_DATA);
-                    assertThat(agentExecution.durationMs()).isEqualTo(320);
+                .satisfies(step -> {
+                    assertThat(step.agentType()).isEqualTo("MARKET_DATA");
+                    assertThat(step.durationMs()).isEqualTo(320);
                 });
         assertThat(response.responseTimeMs()).isGreaterThanOrEqualTo(0);
     }

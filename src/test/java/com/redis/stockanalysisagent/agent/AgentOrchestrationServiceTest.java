@@ -228,6 +228,144 @@ class AgentOrchestrationServiceTest {
         }
     }
 
+    @Test
+    void runsFundamentalsAndTechnicalsInParallelAndRecordsSynthesisWhenTheyAreCombined() throws Exception {
+        CountDownLatch fundamentalsStarted = new CountDownLatch(1);
+        CountDownLatch technicalStarted = new CountDownLatch(1);
+        CountDownLatch releaseAgents = new CountDownLatch(1);
+
+        ThreadPoolTaskExecutor executor = taskExecutor();
+        try {
+            AgentOrchestrationService service = new AgentOrchestrationService(
+                    new CoordinatorAgent(new CoordinatorRoutingAgent(Optional.empty())),
+                    new MarketDataAgent(
+                            ticker -> {
+                                throw new IllegalStateException("Market data should not be invoked for this test.");
+                            },
+                            new MarketDataTools(ticker -> {
+                                throw new IllegalStateException("Market data tools should not be invoked for this test.");
+                            }),
+                            Optional.empty()
+                    ),
+                    new FundamentalsAgent(
+                            (ticker, marketSnapshot) -> {
+                                fundamentalsStarted.countDown();
+                                await(releaseAgents);
+                                return new FundamentalsSnapshot(
+                                        ticker.toUpperCase(),
+                                        "Duolingo, Inc.",
+                                        "0001562088",
+                                        new BigDecimal("1040000000.00"),
+                                        new BigDecimal("749000000.00"),
+                                        new BigDecimal("38.71"),
+                                        new BigDecimal("414000000.00"),
+                                        new BigDecimal("135600000.00"),
+                                        new BigDecimal("13.07"),
+                                        new BigDecimal("39.91"),
+                                        new BigDecimal("1040000000.00"),
+                                        new BigDecimal("0.00"),
+                                        new BigDecimal("48300000.00"),
+                                        new BigDecimal("105.79"),
+                                        new BigDecimal("5110000000.00"),
+                                        new BigDecimal("4.91"),
+                                        new BigDecimal("8.57"),
+                                        new BigDecimal("12.34"),
+                                        LocalDate.parse("2025-12-31"),
+                                        LocalDate.parse("2026-02-27"),
+                                        "test-sec"
+                                );
+                            },
+                            Optional.empty()
+                    ),
+                    new NewsAgent(
+                            new NewsTools(
+                                    ticker -> {
+                                        throw new IllegalStateException("News should not be invoked for this test.");
+                                    },
+                                    tavilyStub()
+                            ),
+                            Optional.empty()
+                    ),
+                    new TechnicalAnalysisAgent(
+                            ticker -> {
+                                technicalStarted.countDown();
+                                await(releaseAgents);
+                                return new TechnicalAnalysisSnapshot(
+                                        ticker.toUpperCase(),
+                                        "1day",
+                                        OffsetDateTime.parse("2026-03-16T00:00:00Z"),
+                                        new BigDecimal("105.79"),
+                                        new BigDecimal("103.99"),
+                                        new BigDecimal("105.63"),
+                                        new BigDecimal("45.79"),
+                                        "BULLISH",
+                                        "NEUTRAL",
+                                        "test-technical"
+                                );
+                            },
+                            new TechnicalAnalysisTools(ticker -> {
+                                technicalStarted.countDown();
+                                await(releaseAgents);
+                                return new TechnicalAnalysisSnapshot(
+                                        ticker.toUpperCase(),
+                                        "1day",
+                                        OffsetDateTime.parse("2026-03-16T00:00:00Z"),
+                                        new BigDecimal("105.79"),
+                                        new BigDecimal("103.99"),
+                                        new BigDecimal("105.63"),
+                                        new BigDecimal("45.79"),
+                                        "BULLISH",
+                                        "NEUTRAL",
+                                        "test-technical"
+                                );
+                            }),
+                            Optional.empty()
+                    ),
+                    new SynthesisAgent(Optional.empty()),
+                    executor
+            );
+
+            AnalysisRequest request = new AnalysisRequest(
+                    "DUOL",
+                    "Show me what the fundamentals and technicals look like for Duolingo."
+            );
+            RoutingDecision routingDecision = RoutingDecision.completed(
+                    "DUOL",
+                    request.question(),
+                    List.of(AgentType.FUNDAMENTALS, AgentType.TECHNICAL_ANALYSIS),
+                    false,
+                    "Combined fundamentals and technical request."
+            );
+
+            CompletableFuture<AnalysisResponse> responseFuture = CompletableFuture.supplyAsync(
+                    () -> service.processRequest(request, routingDecision)
+            );
+
+            assertThat(fundamentalsStarted.await(2, TimeUnit.SECONDS)).isTrue();
+            assertThat(technicalStarted.await(2, TimeUnit.SECONDS)).isTrue();
+            assertThat(responseFuture.isDone()).isFalse();
+
+            releaseAgents.countDown();
+
+            AnalysisResponse response = responseFuture.get(5, TimeUnit.SECONDS);
+
+            assertThat(response.agentExecutions())
+                    .extracting(AgentExecution::agentType)
+                    .containsExactly(
+                            AgentType.FUNDAMENTALS,
+                            AgentType.TECHNICAL_ANALYSIS,
+                            AgentType.SYNTHESIS
+                    );
+            assertThat(response.agentExecutions())
+                    .filteredOn(execution -> execution.agentType() == AgentType.SYNTHESIS)
+                    .singleElement()
+                    .satisfies(execution -> assertThat(execution.durationMs()).isGreaterThanOrEqualTo(0));
+        } finally {
+            releaseAgents.countDown();
+            executor.shutdown();
+        }
+    }
+
     private static ThreadPoolTaskExecutor taskExecutor() {
         ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
         executor.setThreadNamePrefix("test-agent-");

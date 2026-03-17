@@ -1,6 +1,6 @@
 package com.redis.stockanalysisagent.chat.api;
 
-import com.redis.stockanalysisagent.agent.AgentExecution;
+import com.redis.stockanalysisagent.chat.ChatExecutionStep;
 
 import java.util.List;
 
@@ -11,7 +11,7 @@ public record ChatResponse(
         String response,
         List<String> retrievedMemories,
         boolean fromSemanticCache,
-        List<AgentExecution> triggeredAgents,
+        List<ChatExecutionStep> triggeredAgents,
         long responseTimeMs
 ) {
 }

@@ -1,8 +1,5 @@
 package com.redis.stockanalysisagent.chat;
 
-import com.redis.stockanalysisagent.agent.AgentExecution;
-import com.redis.stockanalysisagent.agent.AgentExecutionStatus;
-import com.redis.stockanalysisagent.agent.AgentType;
 import com.redis.stockanalysisagent.memory.AmsChatMemoryRepository;
 import com.redis.stockanalysisagent.memory.LongTermMemoryAdvisor;
 import org.junit.jupiter.api.Test;
@@ -33,7 +30,7 @@ class StockAnalysisChatServiceTest {
         when(chatTools.consumeInvocationMetadata())
                 .thenReturn(new StockAnalysisChatTools.ToolResultMetadata(
                         true,
-                        List.of(new AgentExecution(AgentType.MARKET_DATA, AgentExecutionStatus.COMPLETED, "ok", 245))
+                        List.of(new ChatExecutionStep("MARKET_DATA", 245))
                 ));
         when(memoryRepository.getLastRetrievedMemories())
                 .thenReturn(List.of("The user asked about Apple earlier."));
@@ -58,9 +55,9 @@ class StockAnalysisChatServiceTest {
         assertThat(turn.fromSemanticCache()).isTrue();
         assertThat(turn.triggeredAgents())
                 .singleElement()
-                .satisfies(agentExecution -> {
-                    assertThat(agentExecution.agentType()).isEqualTo(AgentType.MARKET_DATA);
-                    assertThat(agentExecution.durationMs()).isEqualTo(245);
+                .satisfies(step -> {
+                    assertThat(step.agentType()).isEqualTo("MARKET_DATA");
+                    assertThat(step.durationMs()).isEqualTo(245);
                 });
         verify(chatMemory).add(
                 eq("test-user:test-session"),

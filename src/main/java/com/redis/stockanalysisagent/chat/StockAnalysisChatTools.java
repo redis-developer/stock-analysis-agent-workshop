@@ -1,7 +1,7 @@
 package com.redis.stockanalysisagent.chat;
 
+import com.redis.stockanalysisagent.agent.AgentExecutionStatus;
 import com.redis.stockanalysisagent.agent.AgentOrchestrationService;
-import com.redis.stockanalysisagent.agent.AgentExecution;
 import com.redis.stockanalysisagent.agent.coordinatoragent.CoordinatorAgent;
 import com.redis.stockanalysisagent.agent.coordinatoragent.RoutingDecision;
 import com.redis.stockanalysisagent.api.AnalysisRequest;
@@ -18,6 +18,7 @@ import java.util.Map;
 @Component
 public class StockAnalysisChatTools {
 
+    private static final String COORDINATOR = "COORDINATOR";
     private static final ToolResultMetadata NOT_FROM_CACHE = new ToolResultMetadata(false, List.of());
 
     private final CoordinatorAgent coordinatorAgent;
@@ -35,7 +36,7 @@ public class StockAnalysisChatTools {
         this.semanticAnalysisCache = semanticAnalysisCache;
     }
 
-    @Tool(description = "Run the stock-analysis orchestration for a user's question. Use this for market, fundamentals, news, technical, or combined stock-analysis requests. The tool may return a clarification question if the request is incomplete.")
+    @Tool(description = "Run the stock-analysis orchestration for a user's question. Use this once per user turn for in-scope stock-analysis requests, including combined requests that need fundamentals, news, technicals, and synthesis together. Pass the full request instead of decomposing it into separate tool calls unless you are only asking a clarification question.")
     public String analyzeStockRequest(
             @ToolParam(description = "The user's stock-analysis request in plain English, including any ticker or company reference resolved from conversation context.")
             String request
@@ -47,7 +48,9 @@ public class StockAnalysisChatTools {
             return cachedResponse.get();
         }
 
+        long coordinatorStartedAt = System.nanoTime();
         RoutingDecision routingDecision = coordinatorAgent.execute(request);
+        metadata.recordInvocation(false, List.of(new ChatExecutionStep(COORDINATOR, elapsedDurationMs(coordinatorStartedAt))));
 
         if (routingDecision.getFinishReason() == RoutingDecision.FinishReason.NEEDS_MORE_INPUT) {
             return routingDecision.getNextPrompt();
@@ -98,18 +101,27 @@ public class StockAnalysisChatTools {
                 .formatted(response.answer(), String.join(" ", response.limitations()));
     }
 
-    private List<AgentExecution> extractTriggeredAgents(AnalysisResponse response) {
+    private List<ChatExecutionStep> extractTriggeredAgents(AnalysisResponse response) {
         if (response.agentExecutions() == null) {
             return List.of();
         }
 
         return response.agentExecutions().stream()
+                .filter(agentExecution -> agentExecution.status() != AgentExecutionStatus.SKIPPED)
+                .map(agentExecution -> new ChatExecutionStep(
+                        agentExecution.agentType().name(),
+                        agentExecution.durationMs()
+                ))
                 .toList();
+    }
+
+    private long elapsedDurationMs(long startedAt) {
+        return Math.max(0, (System.nanoTime() - startedAt) / 1_000_000);
     }
 
     public record ToolResultMetadata(
             boolean fromSemanticCache,
-            List<AgentExecution> triggeredAgents
+            List<ChatExecutionStep> triggeredAgents
     ) {
     }
 
@@ -117,15 +129,14 @@ public class StockAnalysisChatTools {
 
         private int invocationCount;
         private boolean allFromSemanticCache = true;
-        private final Map<String, AgentExecution> triggeredAgents = new LinkedHashMap<>();
+        private final Map<String, ChatExecutionStep> triggeredAgents = new LinkedHashMap<>();
 
-        private void recordInvocation(boolean fromSemanticCache, List<AgentExecution> agentExecutions) {
+        private void recordInvocation(boolean fromSemanticCache, List<ChatExecutionStep> agentExecutions) {
             invocationCount += 1;
             allFromSemanticCache = allFromSemanticCache && fromSemanticCache;
 
-            for (AgentExecution agentExecution : agentExecutions) {
-                String key = agentExecution.agentType().name();
-                triggeredAgents.merge(key, agentExecution, ToolResultAccumulator::mergeAgentExecution);
+            for (ChatExecutionStep agentExecution : agentExecutions) {
+                triggeredAgents.merge(agentExecution.agentType(), agentExecution, ToolResultAccumulator::mergeAgentExecution);
             }
         }
 
@@ -140,37 +151,11 @@ public class StockAnalysisChatTools {
             );
         }
 
-        private static AgentExecution mergeAgentExecution(AgentExecution existing, AgentExecution incoming) {
-            return new AgentExecution(
+        private static ChatExecutionStep mergeAgentExecution(ChatExecutionStep existing, ChatExecutionStep incoming) {
+            return new ChatExecutionStep(
                     incoming.agentType(),
-                    mergeStatus(existing, incoming),
-                    mergeSummary(existing, incoming),
                     existing.durationMs() + incoming.durationMs()
             );
-        }
-
-        private static com.redis.stockanalysisagent.agent.AgentExecutionStatus mergeStatus(
-                AgentExecution existing,
-                AgentExecution incoming
-        ) {
-            return severity(existing) >= severity(incoming) ? existing.status() : incoming.status();
-        }
-
-        private static int severity(AgentExecution execution) {
-            return switch (execution.status()) {
-                case FAILED -> 4;
-                case NOT_IMPLEMENTED -> 3;
-                case SKIPPED -> 2;
-                case COMPLETED -> 1;
-            };
-        }
-
-        private static String mergeSummary(AgentExecution existing, AgentExecution incoming) {
-            if (incoming.summary() != null && !incoming.summary().isBlank()) {
-                return incoming.summary();
-            }
-
-            return existing.summary();
         }
     }
 }
