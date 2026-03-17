@@ -42,9 +42,6 @@ public class AgentMemoryConfig {
             AgentMemoryService agentMemoryService,
             AmsChatMemoryRepository memoryRepository
     ) {
-        return LongTermMemoryAdvisor.builder(agentMemoryService)
-                .memoryRepository(memoryRepository)
-                .maxMemories(5)
-                .build();
+        return new LongTermMemoryAdvisor(agentMemoryService, memoryRepository, 5);
     }
 }

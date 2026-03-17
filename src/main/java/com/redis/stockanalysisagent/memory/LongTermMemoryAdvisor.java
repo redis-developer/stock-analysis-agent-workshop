@@ -9,8 +9,8 @@ import org.springframework.ai.chat.client.advisor.api.AdvisorChain;
 import org.springframework.ai.chat.client.advisor.api.BaseAdvisor;
 import org.springframework.ai.chat.memory.ChatMemory;
 
-import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * Spring AI advisor that retrieves relevant long-term memories from Agent Memory Server
@@ -20,30 +20,18 @@ public class LongTermMemoryAdvisor implements BaseAdvisor {
 
     public static final String RETRIEVED_MEMORIES = "long_term_memory_retrieved";
     private static final int DEFAULT_ORDER = 100;
+    private static final String ANONYMOUS_USER = "anonymous";
 
     private final AgentMemoryService agentMemoryService;
     private final AmsChatMemoryRepository memoryRepository;
     private final int maxMemories;
-    private final int order;
 
-    public LongTermMemoryAdvisor(AgentMemoryService agentMemoryService) {
-        this(agentMemoryService, null, 5, DEFAULT_ORDER);
-    }
-
-    public LongTermMemoryAdvisor(AgentMemoryService agentMemoryService, AmsChatMemoryRepository memoryRepository) {
-        this(agentMemoryService, memoryRepository, 5, DEFAULT_ORDER);
-    }
-
-    public LongTermMemoryAdvisor(
-            AgentMemoryService agentMemoryService,
-            AmsChatMemoryRepository memoryRepository,
-            int maxMemories,
-            int order
-    ) {
+    public LongTermMemoryAdvisor(AgentMemoryService agentMemoryService,
+                                 AmsChatMemoryRepository memoryRepository,
+                                 int maxMemories) {
         this.agentMemoryService = agentMemoryService;
         this.memoryRepository = memoryRepository;
         this.maxMemories = maxMemories;
-        this.order = order;
     }
 
     @Override
@@ -53,7 +41,7 @@ public class LongTermMemoryAdvisor implements BaseAdvisor {
 
     @Override
     public int getOrder() {
-        return order;
+        return DEFAULT_ORDER;
     }
 
     @Override
@@ -61,7 +49,7 @@ public class LongTermMemoryAdvisor implements BaseAdvisor {
         String conversationId = (String) request.context().get(ChatMemory.CONVERSATION_ID);
         String userId = parseUserId(conversationId);
 
-        if (userId == null || userId.equals("anonymous")) {
+        if (userId == null || ANONYMOUS_USER.equals(userId)) {
             return request;
         }
 
@@ -79,15 +67,8 @@ public class LongTermMemoryAdvisor implements BaseAdvisor {
             return request;
         }
 
-        StringBuilder memoryContext = new StringBuilder();
-        memoryContext.append("\n\n--- Long-Term Memories About This User ---\n");
-        for (String memory : memories) {
-            memoryContext.append("- ").append(memory).append("\n");
-        }
-        memoryContext.append("--- Use these memories to personalize your response ---\n");
-
         return request.mutate()
-                .prompt(request.prompt().augmentSystemMessage(memoryContext.toString()))
+                .prompt(request.prompt().augmentSystemMessage(formatMemoryContext(memories)))
                 .context(RETRIEVED_MEMORIES, memories)
                 .build();
     }
@@ -106,52 +87,30 @@ public class LongTermMemoryAdvisor implements BaseAdvisor {
     }
 
     private List<String> searchMemories(String query, String userId) {
-        List<String> results = new ArrayList<>();
         try {
             MemoryRecordResults response = agentMemoryService.searchLongTermMemory(query, userId, maxMemories);
-            if (response != null && response.getMemories() != null) {
-                for (MemoryRecordResult memory : response.getMemories()) {
-                    if (memory.getText() != null) {
-                        results.add(memory.getText());
-                    }
-                }
+            if (response == null || response.getMemories() == null) {
+                return List.of();
             }
+            return response.getMemories().stream()
+                    .map(MemoryRecordResult::getText)
+                    .filter(text -> text != null && !text.isBlank())
+                    .toList();
         } catch (Exception ignored) {
+            return List.of();
         }
-        return results;
     }
 
-    public static Builder builder(AgentMemoryService agentMemoryService) {
-        return new Builder(agentMemoryService);
-    }
+    private String formatMemoryContext(List<String> memories) {
+        return """
 
-    public static class Builder {
-        private final AgentMemoryService agentMemoryService;
-        private AmsChatMemoryRepository memoryRepository;
-        private int maxMemories = 5;
-        private int order = DEFAULT_ORDER;
-
-        public Builder(AgentMemoryService agentMemoryService) {
-            this.agentMemoryService = agentMemoryService;
-        }
-
-        public Builder memoryRepository(AmsChatMemoryRepository memoryRepository) {
-            this.memoryRepository = memoryRepository;
-            return this;
-        }
-
-        public Builder maxMemories(int maxMemories) {
-            this.maxMemories = maxMemories;
-            return this;
-        }
-
-        public Builder order(int order) {
-            this.order = order;
-            return this;
-        }
-
-        public LongTermMemoryAdvisor build() {
-            return new LongTermMemoryAdvisor(agentMemoryService, memoryRepository, maxMemories, order);
-        }
+                Long-term memories about this user:
+                %s
+                Use these memories only when they help personalize the response.
+                """.formatted(
+                memories.stream()
+                        .map(memory -> "- " + memory)
+                        .collect(Collectors.joining(System.lineSeparator()))
+        );
     }
 }
