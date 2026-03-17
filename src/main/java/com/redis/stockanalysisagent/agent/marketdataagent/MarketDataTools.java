@@ -1,6 +1,6 @@
 package com.redis.stockanalysisagent.agent.marketdataagent;
 
-import com.redis.stockanalysisagent.marketdata.MarketDataProvider;
+import com.redis.stockanalysisagent.integrations.marketdata.MarketDataProvider;
 import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.ai.tool.annotation.ToolParam;
 import org.springframework.stereotype.Component;

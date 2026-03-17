@@ -1,10 +1,10 @@
-package com.redis.stockanalysisagent.marketdata.twelvedata;
+package com.redis.stockanalysisagent.integrations.marketdata.twelvedata;
 
 import com.redis.stockanalysisagent.agent.marketdataagent.MarketSnapshot;
 import com.redis.stockanalysisagent.cache.CacheNames;
 import com.redis.stockanalysisagent.cache.ExternalDataCache;
 import com.redis.stockanalysisagent.cache.RedisCacheValueSupport;
-import com.redis.stockanalysisagent.marketdata.MarketDataProvider;
+import com.redis.stockanalysisagent.integrations.marketdata.MarketDataProvider;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;

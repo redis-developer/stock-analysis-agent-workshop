@@ -1,4 +1,4 @@
-package com.redis.stockanalysisagent.news;
+package com.redis.stockanalysisagent.integrations.news;
 
 import com.redis.stockanalysisagent.agent.newsagent.NewsSnapshot;
 

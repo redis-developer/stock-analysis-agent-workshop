@@ -1,6 +1,6 @@
 package com.redis.stockanalysisagent.agent.technicalanalysisagent;
 
-import com.redis.stockanalysisagent.technicalanalysis.TechnicalAnalysisProvider;
+import com.redis.stockanalysisagent.integrations.technicalanalysis.TechnicalAnalysisProvider;
 import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.ai.tool.annotation.ToolParam;
 import org.springframework.stereotype.Component;

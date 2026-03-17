@@ -1,8 +1,8 @@
 package com.redis.stockanalysisagent.agent.newsagent;
 
-import com.redis.stockanalysisagent.news.NewsProvider;
-import com.redis.stockanalysisagent.news.tavily.TavilyNewsProvider;
-import com.redis.stockanalysisagent.news.tavily.TavilyNewsSearchResult;
+import com.redis.stockanalysisagent.integrations.news.NewsProvider;
+import com.redis.stockanalysisagent.integrations.news.tavily.TavilyNewsProvider;
+import com.redis.stockanalysisagent.integrations.news.tavily.TavilyNewsSearchResult;
 import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.ai.tool.annotation.ToolParam;
 import org.springframework.stereotype.Component;

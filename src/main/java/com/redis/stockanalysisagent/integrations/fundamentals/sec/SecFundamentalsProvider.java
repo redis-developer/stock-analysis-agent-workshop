@@ -1,13 +1,13 @@
-package com.redis.stockanalysisagent.fundamentals.sec;
+package com.redis.stockanalysisagent.integrations.fundamentals.sec;
 
 import com.redis.stockanalysisagent.agent.fundamentalsagent.FundamentalsSnapshot;
 import com.redis.stockanalysisagent.agent.marketdataagent.MarketSnapshot;
 import com.redis.stockanalysisagent.cache.CacheNames;
 import com.redis.stockanalysisagent.cache.ExternalDataCache;
-import com.redis.stockanalysisagent.fundamentals.FundamentalsProvider;
-import com.redis.stockanalysisagent.sec.SecCompanyReference;
-import com.redis.stockanalysisagent.sec.SecJsonNodeSupport;
-import com.redis.stockanalysisagent.sec.SecTickerLookupService;
+import com.redis.stockanalysisagent.integrations.fundamentals.FundamentalsProvider;
+import com.redis.stockanalysisagent.integrations.sec.SecCompanyReference;
+import com.redis.stockanalysisagent.integrations.sec.SecJsonNodeSupport;
+import com.redis.stockanalysisagent.integrations.sec.SecTickerLookupService;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;

@@ -1,4 +1,4 @@
-package com.redis.stockanalysisagent.news.tavily;
+package com.redis.stockanalysisagent.integrations.news.tavily;
 
 import com.redis.stockanalysisagent.agent.newsagent.NewsItem;
 import com.redis.stockanalysisagent.cache.CacheNames;
@@ -9,7 +9,6 @@ import org.springframework.web.client.RestClient;
 import tools.jackson.databind.JsonNode;
 
 import java.net.URI;
-import java.time.LocalDate;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;

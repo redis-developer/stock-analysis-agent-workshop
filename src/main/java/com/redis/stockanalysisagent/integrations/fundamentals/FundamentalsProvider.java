@@ -1,4 +1,4 @@
-package com.redis.stockanalysisagent.fundamentals;
+package com.redis.stockanalysisagent.integrations.fundamentals;
 
 import com.redis.stockanalysisagent.agent.fundamentalsagent.FundamentalsSnapshot;
 import com.redis.stockanalysisagent.agent.marketdataagent.MarketSnapshot;

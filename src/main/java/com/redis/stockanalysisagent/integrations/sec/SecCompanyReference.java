@@ -1,4 +1,4 @@
-package com.redis.stockanalysisagent.sec;
+package com.redis.stockanalysisagent.integrations.sec;
 
 public record SecCompanyReference(
         String ticker,

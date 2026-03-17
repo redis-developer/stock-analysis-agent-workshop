@@ -1,4 +1,4 @@
-package com.redis.stockanalysisagent.marketdata.twelvedata;
+package com.redis.stockanalysisagent.integrations.marketdata.twelvedata;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
