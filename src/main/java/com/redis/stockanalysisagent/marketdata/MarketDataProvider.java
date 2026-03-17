@@ -1,4 +1,4 @@
-package com.redis.stockanalysisagent.integrations.marketdata;
+package com.redis.stockanalysisagent.marketdata;
 
 import com.redis.stockanalysisagent.agent.marketdataagent.MarketSnapshot;
 

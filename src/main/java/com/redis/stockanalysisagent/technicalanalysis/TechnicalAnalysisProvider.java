@@ -1,4 +1,4 @@
-package com.redis.stockanalysisagent.integrations.technicalanalysis;
+package com.redis.stockanalysisagent.technicalanalysis;
 
 import com.redis.stockanalysisagent.agent.technicalanalysisagent.TechnicalAnalysisSnapshot;
 

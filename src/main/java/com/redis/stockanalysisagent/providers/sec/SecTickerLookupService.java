@@ -1,8 +1,8 @@
-package com.redis.stockanalysisagent.integrations.sec;
+package com.redis.stockanalysisagent.providers.sec;
 
 import com.redis.stockanalysisagent.cache.CacheNames;
 import com.redis.stockanalysisagent.cache.ExternalDataCache;
-import com.redis.stockanalysisagent.integrations.fundamentals.sec.SecProperties;
+import com.redis.stockanalysisagent.providers.sec.SecProperties;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 import tools.jackson.databind.JsonNode;

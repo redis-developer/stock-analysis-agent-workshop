@@ -1,4 +1,4 @@
-package com.redis.stockanalysisagent.integrations.news.tavily;
+package com.redis.stockanalysisagent.providers.tavily;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;

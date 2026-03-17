@@ -1,4 +1,4 @@
-package com.redis.stockanalysisagent.integrations.sec;
+package com.redis.stockanalysisagent.providers.sec;
 
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;

@@ -1,4 +1,4 @@
-package com.redis.stockanalysisagent.integrations.fundamentals.sec;
+package com.redis.stockanalysisagent.providers.sec;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;

@@ -1,6 +1,6 @@
 package com.redis.stockanalysisagent.agent.technicalanalysisagent;
 
-import com.redis.stockanalysisagent.integrations.technicalanalysis.TechnicalAnalysisProvider;
+import com.redis.stockanalysisagent.technicalanalysis.TechnicalAnalysisProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.client.ChatClient;

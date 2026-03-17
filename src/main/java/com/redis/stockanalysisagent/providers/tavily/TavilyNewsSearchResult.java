@@ -1,4 +1,4 @@
-package com.redis.stockanalysisagent.integrations.news.tavily;
+package com.redis.stockanalysisagent.providers.tavily;
 
 import com.redis.stockanalysisagent.agent.newsagent.NewsItem;
 

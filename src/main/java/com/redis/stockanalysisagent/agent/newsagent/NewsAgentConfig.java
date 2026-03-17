@@ -1,5 +1,6 @@
 package com.redis.stockanalysisagent.agent.newsagent;
 
+import com.redis.stockanalysisagent.agent.tools.NewsTools;
 import org.springframework.ai.chat.client.AdvisorParams;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.model.ChatModel;

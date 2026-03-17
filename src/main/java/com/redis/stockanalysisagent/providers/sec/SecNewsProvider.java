@@ -1,14 +1,14 @@
-package com.redis.stockanalysisagent.integrations.news.sec;
+package com.redis.stockanalysisagent.providers.sec;
 
 import com.redis.stockanalysisagent.agent.newsagent.NewsItem;
 import com.redis.stockanalysisagent.agent.newsagent.NewsSnapshot;
 import com.redis.stockanalysisagent.cache.CacheNames;
 import com.redis.stockanalysisagent.cache.ExternalDataCache;
-import com.redis.stockanalysisagent.integrations.fundamentals.sec.SecProperties;
-import com.redis.stockanalysisagent.integrations.news.NewsProvider;
-import com.redis.stockanalysisagent.integrations.sec.SecCompanyReference;
-import com.redis.stockanalysisagent.integrations.sec.SecJsonNodeSupport;
-import com.redis.stockanalysisagent.integrations.sec.SecTickerLookupService;
+import com.redis.stockanalysisagent.providers.sec.SecProperties;
+import com.redis.stockanalysisagent.news.NewsProvider;
+import com.redis.stockanalysisagent.providers.sec.SecCompanyReference;
+import com.redis.stockanalysisagent.providers.sec.SecJsonNodeSupport;
+import com.redis.stockanalysisagent.providers.sec.SecTickerLookupService;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;

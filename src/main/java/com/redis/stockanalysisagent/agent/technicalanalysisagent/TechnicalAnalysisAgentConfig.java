@@ -1,5 +1,6 @@
 package com.redis.stockanalysisagent.agent.technicalanalysisagent;
 
+import com.redis.stockanalysisagent.agent.tools.TechnicalAnalysisTools;
 import org.springframework.ai.chat.client.AdvisorParams;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.model.ChatModel;

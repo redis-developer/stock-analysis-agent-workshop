@@ -1,7 +1,8 @@
-package com.redis.stockanalysisagent.agent.fundamentalsagent;
+package com.redis.stockanalysisagent.agent.tools;
 
+import com.redis.stockanalysisagent.agent.fundamentalsagent.FundamentalsSnapshot;
 import com.redis.stockanalysisagent.agent.marketdataagent.MarketSnapshot;
-import com.redis.stockanalysisagent.integrations.fundamentals.FundamentalsProvider;
+import com.redis.stockanalysisagent.fundamentals.FundamentalsProvider;
 import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.ai.tool.annotation.ToolParam;
 
