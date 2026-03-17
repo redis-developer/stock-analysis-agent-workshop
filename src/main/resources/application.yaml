@@ -69,7 +69,5 @@ agent-memory:
     namespace: ${AGENT_MEMORY_NAMESPACE:stock-analysis}
 
 app:
-  cli:
-    enabled: false
   chat:
     user-id: ${CHAT_USER_ID:workshop-user}

@@ -1,7 +1,7 @@
 # Stock Analysis Agent Workshop
 
 This repository is the final implementation target for a workshop about building a stock-analysis multi-agent orchestration application with Spring AI.
-The current default experience is a memory-backed chat CLI layered on top of the orchestration flow.
+The current default experience is a memory-backed chat frontend layered on top of the orchestration flow.
 
 ## Workshop Goal
 
@@ -21,7 +21,7 @@ Build a predictable orchestration system where:
 - deterministic data providers over model-generated facts
 - Spring AI for interpretation and synthesis
 - free data sources where possible
-- memory-backed chat over one-shot prompts for the main workshop path
+- memory-backed chat frontend over one-shot prompts for the main workshop path
 
 ## Provider Strategy
 
@@ -117,11 +117,11 @@ It returns:
 - a technical-analysis snapshot when technical analysis is selected
 - a grounded response based on the currently implemented agents
 
-The primary workshop path is now the CLI chat:
+The primary workshop path is now the chat frontend:
 
-- user messages go through a memory-backed `ChatClient`
-- Spring AI advisors inject short-term and long-term memory
-- the chat layer calls the orchestration stack through a bounded stock-analysis tool
+- user messages go through a deterministic chat shell
+- memory is injected into the coordinator through Spring AI advisors
+- the browser chat calls the orchestration stack directly through the bounded stock-analysis tool
 - the underlying coordinator, specialized agents, and synthesis flow remain explicit application code
 - if Agent Memory has a transient write problem, the chat now keeps answering and degrades memory behavior instead of failing the whole turn
 
@@ -131,25 +131,24 @@ Independent agents fan out through `CompletableFuture` on a Spring-managed execu
 External provider calls go through a Redis-backed cache layer so repeated market, SEC, and Tavily lookups are not triggered unnecessarily.
 `MarketDataAgent`, `FundamentalsAgent`, `TechnicalAnalysisAgent`, and `NewsAgent` are now tool-backed specialist agents that use Spring AI over the cached provider layer.
 
-## CLI Mode
+## Frontend Mode
 
-You can test the current system through the memory-backed chat CLI:
+You can test the current system through the memory-backed chat frontend:
 
 ```bash
 ./gradlew bootRun
 ```
 
-The CLI starts a chat session and stores memory under a conversation id shaped like `userId:sessionId`.
+Then open [http://localhost:8080](http://localhost:8080).
+
+The frontend starts a chat session and stores memory under a conversation id shaped like `userId:sessionId`.
 The chat layer uses:
 
-- Spring AI `MessageChatMemoryAdvisor` for working memory
+- Spring AI `MessageChatMemoryAdvisor` on the coordinator path for working memory
 - a custom `LongTermMemoryAdvisor` backed by Redis Agent Memory
-- a single stock-analysis tool that delegates to the existing orchestration stack
+- a single stock-analysis entrypoint that delegates to the existing orchestration stack
 
-Useful commands:
-
-- `/exit` ends the session
-- `/clear` clears the current chat memory
+Use the `Clear chat` button to reset the current chat memory.
 
 To run the full local chat stack:
 
@@ -167,7 +166,6 @@ Recommended chat prompts:
 - `Give me a full view with price, fundamentals, news, and technical analysis`
 
 You should not need to repeat `AAPL` once the conversation already established the company.
-When memory is active, the CLI also prints working-memory usage and any retrieved long-term memories returned by the advisor layer.
 If Agent Memory is temporarily unavailable, the chat should still answer, but follow-up context may be weaker until the memory service recovers.
 
 If you want to run the chat layer without the live Redis-backed provider cache, you can fall back to simple local caching:
@@ -175,12 +173,6 @@ If you want to run the chat layer without the live Redis-backed provider cache, 
 ```bash
 SPRING_CACHE_TYPE=simple \
 ./gradlew bootRun
-```
-
-If you want to run the HTTP API instead of the chat CLI, disable CLI mode explicitly:
-
-```bash
-./gradlew bootRun --args='--app.cli.enabled=false'
 ```
 
 `OPENAI_API_KEY` is the preferred env var for this repo. `SPRING_AI_OPENAI_API_KEY` also works.

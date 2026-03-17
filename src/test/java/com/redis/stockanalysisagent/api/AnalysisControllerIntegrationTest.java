@@ -149,6 +149,20 @@ class AnalysisControllerIntegrationTest {
         assertThat(response.limitations()).isEmpty();
     }
 
+    @Test
+    void degradesCleanlyWhenCoordinatorReturnsAnInvalidCompletedPlan() {
+        AnalysisResponse response = post(new AnalysisRequest(
+                "AAPL",
+                "Return a malformed completed plan."
+        ));
+
+        assertThat(response).isNotNull();
+        assertThat(response.executionPlan()).isNull();
+        assertThat(response.agentExecutions()).isEmpty();
+        assertThat(response.answer()).contains("valid stock-analysis plan");
+        assertThat(response.limitations()).containsExactly("Coordinator could not produce an execution plan.");
+    }
+
     private AnalysisResponse post(AnalysisRequest request) {
         return RestClient.builder()
                 .baseUrl("http://localhost:" + port)
@@ -173,6 +187,16 @@ class AnalysisControllerIntegrationTest {
                 @Override
                 public RoutingDecision route(AnalysisRequest request) {
                     String question = request.question().toLowerCase();
+                    if (question.contains("malformed completed plan")) {
+                        return RoutingDecision.completed(
+                                request.ticker(),
+                                request.question(),
+                                java.util.List.of(),
+                                false,
+                                "Malformed model output."
+                        );
+                    }
+
                     if (question.contains("technical") && !question.contains("fundamentals") && !question.contains("news")) {
                         return RoutingDecision.completed(
                                 request.ticker(),

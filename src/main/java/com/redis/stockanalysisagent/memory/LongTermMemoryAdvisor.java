@@ -7,15 +7,13 @@ import org.springframework.ai.chat.client.ChatClientRequest;
 import org.springframework.ai.chat.client.ChatClientResponse;
 import org.springframework.ai.chat.client.advisor.api.AdvisorChain;
 import org.springframework.ai.chat.client.advisor.api.BaseAdvisor;
+import org.springframework.ai.chat.messages.Message;
+import org.springframework.ai.chat.messages.MessageType;
 import org.springframework.ai.chat.memory.ChatMemory;
 
 import java.util.List;
 import java.util.stream.Collectors;
 
-/**
- * Spring AI advisor that retrieves relevant long-term memories from Agent Memory Server
- * and injects them into the system prompt before the model call.
- */
 public class LongTermMemoryAdvisor implements BaseAdvisor {
 
     public static final String RETRIEVED_MEMORIES = "long_term_memory_retrieved";
@@ -26,9 +24,11 @@ public class LongTermMemoryAdvisor implements BaseAdvisor {
     private final AmsChatMemoryRepository memoryRepository;
     private final int maxMemories;
 
-    public LongTermMemoryAdvisor(AgentMemoryService agentMemoryService,
-                                 AmsChatMemoryRepository memoryRepository,
-                                 int maxMemories) {
+    public LongTermMemoryAdvisor(
+            AgentMemoryService agentMemoryService,
+            AmsChatMemoryRepository memoryRepository,
+            int maxMemories
+    ) {
         this.agentMemoryService = agentMemoryService;
         this.memoryRepository = memoryRepository;
         this.maxMemories = maxMemories;
@@ -36,7 +36,7 @@ public class LongTermMemoryAdvisor implements BaseAdvisor {
 
     @Override
     public String getName() {
-        return this.getClass().getSimpleName();
+        return getClass().getSimpleName();
     }
 
     @Override
@@ -46,6 +46,8 @@ public class LongTermMemoryAdvisor implements BaseAdvisor {
 
     @Override
     public ChatClientRequest before(ChatClientRequest request, AdvisorChain advisorChain) {
+        memoryRepository.setLastRetrievedMemories(List.of());
+
         String conversationId = (String) request.context().get(ChatMemory.CONVERSATION_ID);
         String userId = parseUserId(conversationId);
 
@@ -58,10 +60,12 @@ public class LongTermMemoryAdvisor implements BaseAdvisor {
             return request;
         }
 
-        List<String> memories = searchMemories(userMessage, userId);
-        if (memoryRepository != null) {
-            memoryRepository.setLastRetrievedMemories(memories);
+        if (!hasConversationHistory(conversationId)) {
+            return request;
         }
+
+        List<String> memories = searchMemories(userMessage, userId);
+        memoryRepository.setLastRetrievedMemories(memories);
 
         if (memories.isEmpty()) {
             return request;
@@ -96,8 +100,19 @@ public class LongTermMemoryAdvisor implements BaseAdvisor {
                     .map(MemoryRecordResult::getText)
                     .filter(text -> text != null && !text.isBlank())
                     .toList();
-        } catch (Exception ignored) {
+        } catch (RuntimeException ignored) {
             return List.of();
+        }
+    }
+
+    private boolean hasConversationHistory(String conversationId) {
+        try {
+            return memoryRepository.findByConversationId(conversationId).stream()
+                    .map(Message::getMessageType)
+                    .filter(type -> type == MessageType.USER || type == MessageType.ASSISTANT)
+                    .count() > 0;
+        } catch (RuntimeException ignored) {
+            return false;
         }
     }
 
@@ -106,7 +121,7 @@ public class LongTermMemoryAdvisor implements BaseAdvisor {
 
                 Long-term memories about this user:
                 %s
-                Use these memories only when they help personalize the response.
+                Use these memories only when they help resolve the current stock-analysis request.
                 """.formatted(
                 memories.stream()
                         .map(memory -> "- " + memory)

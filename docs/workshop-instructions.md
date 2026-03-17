@@ -3,7 +3,7 @@
 Last updated: 2026-03-16
 
 This file is the learner-facing companion to the implementation. As the project evolves, add new workshop parts here so the exercises stay aligned with the actual repository state.
-The current repository default is a chat-style CLI backed by Redis Agent Memory, even though the early parts below still describe the simpler slices learners build first.
+The current repository default is a browser chat backed by Redis Agent Memory, even though the early parts below still describe the simpler slices learners build first.
 
 For delivery planning, pair this file with:
 
@@ -34,7 +34,7 @@ Build the first end-to-end slice of the application with a REST endpoint, a coor
 2. Shared orchestration types such as `AgentType`, `ExecutionPlan`, and `AgentExecution`.
 3. A `CoordinatorAgent` that delegates routing to a concrete LLM-backed `CoordinatorRoutingAgent`.
 4. A structured coordinator result that can return `COMPLETED`, `NEEDS_MORE_INPUT`, `OUT_OF_SCOPE`, or `CANNOT_PROCEED`.
-5. A CLI flow that starts from one free-form request and loops when the coordinator asks for clarification.
+5. A chat flow that starts from one free-form request and loops when the coordinator asks for clarification.
 6. A `MarketDataAgent` backed by a market-data seam and a `MarketDataResult`.
 7. A `MockMarketDataProvider` so the flow works before any external API integration.
 8. A lightweight `SynthesisAgent` that returns a grounded answer for the implemented slice.
@@ -62,18 +62,20 @@ Automated:
 
 Manual smoke test with a configured chat model:
 
-- run the app in CLI mode
-- provide one free-form request in the terminal
+- run the app and use the browser chat
+- provide one free-form request in the browser
 - verify that `What's the current price?` triggers a follow-up question for the ticker
 - answer with `AAPL`
 - verify that the coordinator resolves the request and routes to only `MARKET_DATA`
 
-CLI example:
+Frontend example:
 
 ```bash
 STOCK_ANALYSIS_MARKET_DATA_PROVIDER=mock \
 ./gradlew bootRun
 ```
+
+Then open `http://localhost:8080`.
 
 Recommended local setup:
 
@@ -98,8 +100,8 @@ Expected shape:
 - `executionPlan.routingReasoning` is populated
 - `marketSnapshot.source` is `mock`
 - `answer` is populated
-- the CLI can ask a follow-up question before running agents
-- the CLI exits after printing the result
+- the chat can ask a follow-up question before running agents
+- the browser keeps the conversation open for follow-up turns
 
 If a chat model is not configured yet, use the automated test suite as the validation path for this milestone. The runtime coordinator is intentionally LLM-driven, while tests override the routing class to keep the workshop slice reproducible.
 
@@ -107,7 +109,7 @@ If a chat model is not configured yet, use the automated test suite as the valid
 
 - Keep orchestration deterministic even when routing is model-assisted.
 - Let the coordinator decide whether it can proceed, but keep the conversation loop in Java.
-- The CLI output is sectioned for readability, but the long-term goal is dynamic orchestration, not a permanently linear workflow.
+- The frontend response is structured for readability, but the long-term goal is dynamic orchestration, not a permanently linear workflow.
 - Do not let agents call each other directly.
 - Separate orchestration metadata from domain payloads.
 - Use mock data first so the architecture is proven before real integrations are added.
@@ -122,7 +124,7 @@ If a chat model is not configured yet, use the automated test suite as the valid
 3. Implement `agent/coordinatoragent/CoordinatorAgent`.
 4. Add a structured coordinator result with finish reasons and follow-up prompts.
 5. Add `agent/coordinatoragent/CoordinatorRoutingAgent` as the concrete LLM-backed router.
-6. Wire a CLI loop that continues while the coordinator returns `NEEDS_MORE_INPUT`.
+6. Wire a chat flow that continues while the coordinator returns `NEEDS_MORE_INPUT`.
 7. Add `agent/marketdataagent/MarketDataAgent` and its result object.
 8. Implement a mock provider under `marketdata`.
 9. Add `agent/synthesisagent/SynthesisAgent`.
@@ -179,7 +181,7 @@ Introduce a fundamentals path based on SEC EDGAR / XBRL data and plug it into th
 3. A normalized fundamentals contract under `agent/fundamentalsagent`.
 4. A `FundamentalsAgent` that can run with or without market-price context.
 5. Orchestration wiring so `FUNDAMENTALS` executes when selected.
-6. A response shape and CLI output that surface the fundamentals snapshot.
+6. A response shape and frontend output that surface the fundamentals snapshot.
 7. Normalization tests for SEC company facts.
 
 ### Acceptance Criteria
@@ -197,14 +199,14 @@ Introduce a fundamentals path based on SEC EDGAR / XBRL data and plug it into th
 ./gradlew bootRun
 ```
 
-Then enter:
+Then ask:
 
 - `Request: How do AAPL fundamentals look?`
 
 Expected result:
 
 - `Selected agents` contains `FUNDAMENTALS`
-- a fundamentals snapshot is printed in the CLI
+- a fundamentals snapshot is visible in the frontend response
 - `Source` is `sec`
 - the final answer includes the normalized fundamentals result
 
@@ -244,12 +246,12 @@ Introduce a hybrid news path that keeps official company-event signals while als
 
 Then enter:
 
-- `Request: What recent news should I know about Apple?`
+- `What recent news should I know about Apple?`
 
 Expected result:
 
 - `Selected agents` contains `NEWS`
-- a news snapshot is printed in the CLI
+- a news snapshot is visible in the frontend response
 - `Source` is `sec` without Tavily or `sec+tavily` with Tavily configured
 - the final answer references investor-relevant news and, when available, official SEC signals
 
@@ -271,7 +273,7 @@ Introduce a deterministic technical-analysis path that computes indicators in Ja
 4. Twelve Data time-series retrieval for the selected ticker.
 5. Java calculations for `SMA(20)`, `EMA(20)`, and `RSI(14)`.
 6. Trend and momentum labels derived from those indicators.
-7. CLI and API output that surface the technical-analysis snapshot.
+7. Frontend and API output that surface the technical-analysis snapshot.
 8. A direct-answer path for technical-only questions.
 9. Provider normalization tests and an integration test for the technical path.
 
@@ -292,12 +294,12 @@ Introduce a deterministic technical-analysis path that computes indicators in Ja
 
 Then enter:
 
-- `Request: What do the technicals look like for Apple?`
+- `What do the technicals look like for Apple?`
 
 Expected result:
 
 - `Selected agents` contains `TECHNICAL_ANALYSIS`
-- a technical-analysis snapshot is printed in the CLI
+- a technical-analysis snapshot is visible in the frontend response
 - `Source` is `twelve-data`
 - the final answer references trend, momentum, and the indicator values
 
@@ -381,7 +383,7 @@ Expected result:
 
 - multiple agents execute from the selected plan
 - the final answer still returns even if one selected provider fails
-- CLI output shows which agent failed and which ones completed
+- frontend output shows which agent failed and which ones completed
 
 ### Teaching Point
 
@@ -398,7 +400,7 @@ Let independent specialized agents execute concurrently with `CompletableFuture`
 1. A Spring-managed executor dedicated to agent work.
 2. `CompletableFuture`-based fan-out inside `AgentOrchestrationService`.
 3. A small rule for dependency handling so fundamentals can still wait for market-price context when market data is part of the plan.
-4. Stable result merging so CLI and API output remain predictable even though execution is concurrent underneath.
+4. Stable result merging so frontend and API output remain predictable even though execution is concurrent underneath.
 5. A concurrency-focused orchestration test that proves selected agents really start in parallel.
 
 ### Acceptance Criteria
@@ -406,7 +408,7 @@ Let independent specialized agents execute concurrently with `CompletableFuture`
 - independent agents execute concurrently rather than sequentially
 - fundamentals still receives market-price context when market data is selected
 - one failing future still degrades into a per-agent failure instead of crashing the whole run
-- CLI and API output remain stable and readable
+- frontend and API output remain stable and readable
 - tests cover real parallel fan-out behavior
 
 ### Automated Validation
@@ -427,7 +429,7 @@ Then enter:
 Expected result:
 
 - the same broad multi-agent flow still works
-- the CLI output remains stable and ordered for readability
+- the frontend output remains stable and ordered for readability
 - the implementation underneath now uses parallel fan-out for independent agents
 
 ### Teaching Point
@@ -727,22 +729,22 @@ Turn the user experience into a real chat by adding Redis Agent Memory at the co
 
 ### What Learners Build
 
-1. A memory-backed chat service that becomes the main CLI entrypoint.
+1. A memory-backed chat service that becomes the main browser entrypoint.
 2. A Spring AI `ChatMemoryRepository` backed by Redis Agent Memory Server.
 3. Short-term memory via `MessageChatMemoryAdvisor`.
 4. Long-term memory retrieval via a custom Spring AI advisor.
-5. A bounded chat tool that delegates back into the existing stock-analysis orchestration stack.
+5. A bounded chat entrypoint that delegates back into the existing stock-analysis orchestration stack.
 6. A conversation id strategy that keeps `userId` and `sessionId` together.
 7. A local Docker Compose stack that includes Redis, Agent Memory Server, and Redis Insight.
-8. A chat loop with `/exit` and `/clear`.
+8. A browser chat experience with a clear-session control.
 
 ### Acceptance Criteria
 
-- the default CLI experience is conversational rather than one-shot
+- the default frontend experience is conversational rather than one-shot
 - follow-up prompts can reuse prior context such as the current company or ticker
 - short-term memory is wired through Spring AI chat memory
-- long-term memory is queried through the custom advisor before model calls
-- the bounded stock-analysis tool still delegates to the explicit orchestration stack
+- long-term memory is queried through the custom advisor before coordinator routing
+- the bounded stock-analysis entrypoint still delegates to the explicit orchestration stack
 - the automated test suite still passes without requiring a live memory server
 
 ### Automated Validation
@@ -769,8 +771,8 @@ Expected result:
 
 - the chat does not force you to repeat `AAPL`
 - the assistant can carry the company context across turns
-- the CLI shows memory usage information when the memory server returns it
-- `/clear` resets the current session memory
+- the frontend shows retrieved memories when the memory server returns them
+- `Clear chat` resets the current session memory
 
 ### Teaching Point
 

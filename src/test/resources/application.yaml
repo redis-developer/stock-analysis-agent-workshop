@@ -21,7 +21,5 @@ stock-analysis:
     provider: mock
 
 app:
-  cli:
-    enabled: false
   chat:
     user-id: test-user

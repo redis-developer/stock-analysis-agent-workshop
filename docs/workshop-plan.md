@@ -18,7 +18,7 @@ Build a stock-analysis multi-agent orchestration application with Spring AI wher
 
 - Orchestration over fixed workflow.
 - Deterministic provider calls over model-generated facts.
-- keep the REST endpoint, but treat the memory-backed CLI chat as the primary workshop path now.
+- keep the REST endpoint, but treat the memory-backed chat frontend as the primary workshop path now.
 - Keep integrations swappable, but avoid abstractions before the workshop needs them.
 - Keep the first implementation simple before adding parallelism or advanced runtime behavior.
 - Every milestone must end in a testable workshop slice.
@@ -45,7 +45,7 @@ Build a stock-analysis multi-agent orchestration application with Spring AI wher
   - Fundamentals converted into the second tool-backed LLM specialist agent
   - Technical analysis converted into the third tool-backed LLM specialist agent
   - News converted into the fourth tool-backed LLM specialist agent
-  - Redis Agent Memory-backed chat mode with Spring AI short-term and long-term memory advisors
+  - Redis Agent Memory-backed chat mode with working-memory and long-term-memory retrieval before coordinator routing
 - In progress
   - Hardening milestone
   - Workshop polish milestone
@@ -63,7 +63,7 @@ Build a stock-analysis multi-agent orchestration application with Spring AI wher
 | Real Data Integration | Complete | Twelve Data replaces the mock market provider, SEC-backed fundamentals data objects are introduced, and the real-data slices have both automated and manual verification steps. |
 | True Orchestration | Complete | The coordinator selects agents dynamically, execution no longer looks like a fixed pipeline, partial failure handling is supported, safe parallel fan-out is introduced, and routing plus degraded execution paths are covered by tests. |
 | Additional Agents | Complete | Fundamentals, news, and technical analysis agents are implemented against stable data shapes and each new agent adds its own smoke-test scenario. |
-| Conversational Memory | Complete | The CLI runs as a memory-backed chat, Redis Agent Memory is wired through Spring AI advisors, and follow-up questions can reuse context from prior turns. |
+| Conversational Memory | Complete | The frontend runs as a memory-backed chat, Redis Agent Memory provides working and long-term memory context through advisors on the coordinator path, and follow-up questions can reuse context from prior turns. |
 | Hardening | In Progress | Timeouts, retries, caching, stronger tests, and workshop checkpoints are in place, with a regression suite that validates the main workshop flows. |
 | Workshop Polish | In Progress | Learner instructions, checkpoints, and facilitator notes are aligned with the final implementation, and each milestone has a clear validation recipe. |
 
@@ -83,18 +83,16 @@ If a milestone cannot be verified through all three, it is not done.
 ## Current Architecture
 
 - `POST /analysis` is the current HTTP entrypoint.
-- `CommandLineRunner` enables CLI mode when `app.cli.enabled=true`.
-- `agent/CliOrchestrationService` now runs a stateful chat session instead of a one-shot prompt loop.
-- `chat/StockAnalysisChatService` is the user-facing chat layer and owns the memory-backed `ChatClient`.
-- `chat/StockAnalysisChatTools` exposes the bounded stock-analysis tool that delegates into the existing coordinator and orchestration stack.
+- `chat/StockAnalysisChatService` is the user-facing chat layer and remains a deterministic shell around the coordinator path.
+- `chat/StockAnalysisChatTools` exposes the bounded stock-analysis entrypoint that delegates into the existing coordinator and orchestration stack.
 - `memory/AmsChatMemoryRepository` adapts Redis Agent Memory Server into Spring AI `ChatMemoryRepository`.
-- `memory/LongTermMemoryAdvisor` injects relevant long-term memories into the system prompt before each model call.
-- the CLI output is conversational now, but the orchestration underneath is still explicit application code rather than a hidden workflow.
+- `memory/LongTermMemoryAdvisor` injects relevant long-term memories into the coordinator request before each model call.
+- the frontend chat is conversational now, but the orchestration underneath is still explicit application code rather than a hidden workflow.
 - `agent/AgentOrchestrationService` coordinates the current slice.
 - `agent/AgentOrchestrationService` now dispatches selected agents dynamically instead of hardcoding one growing execution chain.
-- `agent/AgentOrchestrationService` now fans out independent selected agents with `CompletableFuture` on a Spring-managed executor and merges results back in plan order for stable CLI/API output.
+- `agent/AgentOrchestrationService` now fans out independent selected agents with `CompletableFuture` on a Spring-managed executor and merges results back in plan order for stable frontend/API output.
 - `agent/coordinatoragent/CoordinatorAgent` owns coordinator execution, plan normalization, and request normalization.
-- `agent/coordinatoragent/CoordinatorRoutingAgent` is a concrete class that uses Spring AI structured output plus lightweight chat memory for runtime routing and clarification.
+- `agent/coordinatoragent/CoordinatorRoutingAgent` is a concrete class that uses Spring AI structured output plus memory advisors for runtime routing and clarification.
 - the project now uses the Spring AI OpenAI starter for local model access.
 - `agent/marketdataagent/MarketDataAgent` is now the first tool-backed specialist agent and uses Spring AI tool-calling against the cached market-data provider.
 - `agent/marketdataagent/MarketDataResult` holds the market-agent result.
@@ -124,7 +122,7 @@ If a milestone cannot be verified through all three, it is not done.
 - fundamentals now follows the same tool-backed specialist pattern and can reuse market context from orchestration without re-triggering market APIs.
 - technical analysis now follows the same tool-backed specialist pattern while still keeping the indicator calculations deterministic in Java.
 - news now follows the same tool-backed specialist pattern while still keeping the SEC-plus-Tavily retrieval deterministic behind the cached provider layer.
-- the default CLI path is now chat-based and uses both short-term and long-term memory before deciding whether to call the bounded stock-analysis tool.
+- the default chat path now uses both short-term and long-term memory before deciding whether to call the bounded stock-analysis tool.
 - Integration and orchestration tests are green and provide a simple routing override for repeatable verification.
 - the repository now includes separate learner instructions, checkpoint mapping, and facilitator notes so the teaching path is no longer implicit.
 
@@ -138,7 +136,7 @@ The repository now follows the same broad structure as the `socialmediatracker` 
 - `chat`
   - the user-facing chat layer and bounded tool surface
 - `memory`
-  - Spring AI advisor and repository glue for Redis Agent Memory
+  - Spring AI chat-memory repository glue for Redis Agent Memory
 - `marketdata`
   - provider implementations and external data integration code
 - `api`
@@ -150,7 +148,7 @@ This keeps the workshop centered on agents rather than on a generic `analysis` p
 
 1. Add timeouts and retry boundaries around Twelve Data, SEC, and Tavily calls.
 2. Add checkpoint tags or branches and facilitator smoke-test scripts.
-3. Decide whether to expose the new chat experience through HTTP as well as the CLI.
+3. Continue improving the browser chat experience as the main workshop interface.
 
 ## Deferred Scope
 

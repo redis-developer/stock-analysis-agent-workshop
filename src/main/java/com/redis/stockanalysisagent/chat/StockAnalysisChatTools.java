@@ -40,9 +40,15 @@ public class StockAnalysisChatTools {
             @ToolParam(description = "The user's stock-analysis request in plain English, including any ticker or company reference resolved from conversation context.")
             String request
     ) {
+        return analyzeStockRequest(request, null);
+    }
+
+    public String analyzeStockRequest(String request, String conversationId) {
         ToolResultAccumulator metadata = invocationMetadata.get();
         long coordinatorStartedAt = System.nanoTime();
-        RoutingDecision routingDecision = coordinatorAgent.execute(request);
+        RoutingDecision routingDecision = conversationId == null
+                ? coordinatorAgent.execute(request)
+                : coordinatorAgent.execute(request, conversationId);
         metadata.recordInvocation(List.of(agentStep(
                 COORDINATOR,
                 "Coordinator",

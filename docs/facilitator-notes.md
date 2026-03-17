@@ -31,11 +31,13 @@ Notes:
 
 ## Recommended Demo Order
 
-Use the CLI for the main workshop path:
+Use the browser chat for the main workshop path:
 
 ```bash
 ./gradlew bootRun
 ```
+
+Then open `http://localhost:8080`.
 
 Recommended live prompts:
 
@@ -44,7 +46,7 @@ Recommended live prompts:
 3. `And any recent news?`
 4. `What do the technicals look like?`
 5. `Give me a full view with price, fundamentals, news, and technical analysis`
-6. `/clear`
+6. Click `Clear chat`
 
 That sequence shows the system moving from conversational memory into single-agent routing and finally full orchestration.
 It also gives you a clean moment to explain that market data, fundamentals, technical analysis, and news are now all tool-backed specialist agents.
@@ -57,7 +59,7 @@ It also gives you a clean moment to explain that market data, fundamentals, tech
 - The model is used mainly for routing and synthesis, not for inventing market data.
 - Tool-backed specialists still go through the cached provider layer so the same upstream API is not hit repeatedly.
 - The chat layer now carries memory, but the runtime underneath is still orchestration, not a hidden autonomous workflow.
-- Short-term memory comes from Spring AI chat memory, and long-term memory comes from Redis Agent Memory through advisors.
+- Short-term memory comes from Spring AI chat memory, and long-term memory comes from Redis Agent Memory through advisors on the coordinator path.
 
 ## Common Failure Modes
 
@@ -146,7 +148,7 @@ What to tell learners:
 
 If live provider access becomes flaky:
 
-1. Keep using the CLI and demonstrate the routing flow.
+1. Keep using the browser chat and demonstrate the routing flow.
 2. Fall back to `./gradlew test` to show the workshop slice is still verified.
 3. If the memory stack is having a bad day, explain that the bounded stock-analysis tool still works and continue with shorter single-turn prompts.
 4. For market-only demos, temporarily run with:
@@ -177,7 +179,7 @@ Use this rhythm during delivery:
 ## Pre-Workshop Checklist
 
 - `./gradlew test` passes locally
-- `./gradlew bootRun` works with your local config
+- `./gradlew bootRun` works with your local config and the frontend loads
 - `docker compose up -d redis agent-memory-server redis-insight` succeeds locally
 - OpenAI key is valid
 - Twelve Data key is valid

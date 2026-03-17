@@ -1,11 +1,15 @@
 package com.redis.stockanalysisagent.agent.coordinatoragent;
 
 import com.redis.stockanalysisagent.api.AnalysisRequest;
+import com.redis.stockanalysisagent.memory.LongTermMemoryAdvisor;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.client.AdvisorParams;
 import org.springframework.ai.chat.client.ResponseEntity;
+import org.springframework.ai.chat.client.advisor.MessageChatMemoryAdvisor;
+import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.Optional;
@@ -57,12 +61,28 @@ public class CoordinatorRoutingAgent {
     private final ChatClient coordinatorChatClient;
 
     public CoordinatorRoutingAgent(Optional<ChatModel> chatModel) {
+        if (chatModel.isPresent()) {
+            throw new IllegalArgumentException(
+                    "The single-argument CoordinatorRoutingAgent constructor is for no-model test setups only."
+            );
+        }
+        this.coordinatorChatClient = null;
+    }
+
+    @Autowired
+    public CoordinatorRoutingAgent(
+            Optional<ChatModel> chatModel,
+            ChatMemory chatMemory,
+            LongTermMemoryAdvisor longTermMemoryAdvisor
+    ) {
         if (chatModel.isEmpty()) {
             this.coordinatorChatClient = null;
             return;
         }
 
         this.coordinatorChatClient = ChatClient.builder(chatModel.orElseThrow())
+                .defaultAdvisors(MessageChatMemoryAdvisor.builder(chatMemory).build())
+                .defaultAdvisors(longTermMemoryAdvisor)
                 .defaultAdvisors(AdvisorParams.ENABLE_NATIVE_STRUCTURED_OUTPUT)
                 .defaultSystem(DEFAULT_PROMPT)
                 .build();
@@ -76,6 +96,10 @@ public class CoordinatorRoutingAgent {
     }
 
     public RoutingDecision route(String userMessage) {
+        return route(userMessage, ChatMemory.DEFAULT_CONVERSATION_ID);
+    }
+
+    public RoutingDecision route(String userMessage, String conversationId) {
         if (coordinatorChatClient == null) {
             throw new IllegalStateException("""
                     No chat model is configured for LLM-based coordinator routing.
@@ -86,6 +110,7 @@ public class CoordinatorRoutingAgent {
         ResponseEntity<ChatResponse, RoutingDecision> response = coordinatorChatClient
                 .prompt()
                 .user(userMessage)
+                .advisors(spec -> spec.param(ChatMemory.CONVERSATION_ID, conversationId))
                 .call()
                 .responseEntity(RoutingDecision.class);
 

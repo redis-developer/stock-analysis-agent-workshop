@@ -83,6 +83,24 @@ class CoordinatorAgentTest {
     }
 
     @Test
+    void downgradesMalformedCompletedRoutingDecisionsIntoCannotProceed() {
+        CoordinatorAgent coordinatorAgent = new CoordinatorAgent(new StubCoordinatorRoutingAgent(
+                RoutingDecision.completed(
+                        "AAPL",
+                        "Give me an update on Apple.",
+                        java.util.List.of(),
+                        false,
+                        "Malformed model output."
+                )
+        ));
+
+        RoutingDecision decision = coordinatorAgent.execute("Give me an update on Apple.", "conversation-123");
+
+        assertThat(decision.getFinishReason()).isEqualTo(RoutingDecision.FinishReason.CANNOT_PROCEED);
+        assertThat(decision.getFinalResponse()).contains("valid stock-analysis plan");
+    }
+
+    @Test
     void convertsCompletedCoordinatorDecisionIntoNormalizedAnalysisRequest() {
         CoordinatorAgent coordinatorAgent = new CoordinatorAgent(new StubCoordinatorRoutingAgent(
                 RoutingDecision.completed(
@@ -122,6 +140,11 @@ class CoordinatorAgentTest {
 
         @Override
         public RoutingDecision route(String userMessage) {
+            return routingDecision;
+        }
+
+        @Override
+        public RoutingDecision route(String userMessage, String conversationId) {
             return routingDecision;
         }
     }

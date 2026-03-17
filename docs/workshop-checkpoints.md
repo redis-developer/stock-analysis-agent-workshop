@@ -8,7 +8,7 @@ Use this file as the practical delivery map for the workshop. Each checkpoint de
 - what the facilitator can provide up front
 - how to validate the slice before moving on
 
-The current repository default is a chat-style CLI backed by Redis Agent Memory, even though the earlier checkpoints below still describe the simpler slices learners build first.
+The current repository default is a browser chat backed by Redis Agent Memory, even though the earlier checkpoints below still describe the simpler slices learners build first.
 
 ## Checkpoint 1: Orchestration Foundation
 
@@ -16,7 +16,7 @@ The current repository default is a chat-style CLI backed by Redis Agent Memory,
 
 - the core orchestration types such as `AgentType`, `ExecutionPlan`, and `AgentExecution`
 - the coordinator flow with `COMPLETED`, `NEEDS_MORE_INPUT`, `OUT_OF_SCOPE`, and `CANNOT_PROCEED`
-- the free-form CLI clarification loop
+- the free-form clarification loop
 - `MarketDataAgent` plus a mock-backed first slice
 - the initial orchestration service wiring
 
@@ -81,7 +81,7 @@ Manual:
 ### Facilitator Provides
 
 - the existing coordinator flow
-- the current response/CLI structure
+- the current response structure
 - the market-data slice from Checkpoint 2
 
 ### Validation
@@ -233,7 +233,7 @@ Manual:
 
 - run `./gradlew bootRun`
 - enter `Give me a full view on Apple with fundamentals, news, and technical analysis`
-- confirm the CLI output still looks stable even though the selected agents now execute concurrently under the hood
+- confirm the frontend output still looks stable even though the selected agents now execute concurrently under the hood
 
 ## Checkpoint 9: Redis Caching
 
@@ -413,11 +413,11 @@ This is the fourth specialist-agent conversion pattern. The LLM now controls a b
 
 ### Learners Implement
 
-- a chat-oriented CLI flow instead of a one-shot prompt
+- a chat-oriented frontend flow instead of a one-shot prompt
 - a Redis Agent Memory-backed `ChatMemoryRepository`
-- Spring AI short-term memory with `MessageChatMemoryAdvisor`
+- Spring AI short-term memory through `MessageChatMemoryAdvisor`
 - a custom long-term memory advisor
-- a bounded stock-analysis chat tool that delegates to the orchestration stack
+- a bounded stock-analysis chat entrypoint that delegates to the orchestration stack
 - a local Docker Compose setup for Redis, Agent Memory Server, and Redis Insight
 
 ### Facilitator Provides
@@ -439,7 +439,7 @@ Manual:
 - create `.env` from `.env.example` or export `OPENAI_API_KEY`
 - run `docker compose up -d redis agent-memory-server redis-insight`
 - run `./gradlew bootRun`
-- enter `What's the current price of Apple?`
+- ask `What's the current price of Apple?`
 - then `What about its fundamentals?`
 - then `And any recent news?`
 - confirm the assistant carries the Apple context across turns without forcing the ticker to be repeated

@@ -84,7 +84,25 @@ public class AgentOrchestrationService {
             );
         }
 
-        ExecutionPlan executionPlan = coordinatorAgent.createPlan(routingDecision);
+        ExecutionPlan executionPlan;
+        try {
+            executionPlan = coordinatorAgent.createPlan(routingDecision);
+        } catch (IllegalStateException ex) {
+            return new AnalysisResponse(
+                    request.ticker().toUpperCase(),
+                    request.question(),
+                    OffsetDateTime.now(),
+                    null,
+                    List.of(),
+                    null,
+                    null,
+                    null,
+                    null,
+                    resolveCoordinatorMessage(routingDecision),
+                    List.of("Coordinator could not produce an execution plan.")
+            );
+        }
+
         ExecutionState state = executeSelectedAgents(request, executionPlan);
         String answer = buildAnswer(request, executionPlan, state);
 
