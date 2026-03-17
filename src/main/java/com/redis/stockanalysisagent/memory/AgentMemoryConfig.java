@@ -24,10 +24,9 @@ public class AgentMemoryConfig {
 
     @Bean
     public AmsChatMemoryRepository amsChatMemoryRepository(
-            MemoryAPIClient client,
-            @Value("${agent-memory.server.namespace:stock-analysis}") String namespace
+            AgentMemoryService agentMemoryService
     ) {
-        return new AmsChatMemoryRepository(client, namespace);
+        return new AmsChatMemoryRepository(agentMemoryService);
     }
 
     @Bean

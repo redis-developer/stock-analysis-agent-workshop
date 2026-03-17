@@ -10,6 +10,7 @@ import com.redis.agentmemory.models.longtermemory.SearchRequest;
 import com.redis.agentmemory.models.workingmemory.MemoryMessage;
 import com.redis.agentmemory.models.workingmemory.WorkingMemory;
 import com.redis.agentmemory.models.workingmemory.WorkingMemoryResponse;
+import com.redis.agentmemory.models.workingmemory.SessionListResponse;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -40,6 +41,35 @@ public class AgentMemoryService {
             );
         } catch (Exception e) {
             throw new RuntimeException("Failed to get working memory", e);
+        }
+    }
+
+    public List<String> listSessions() {
+        try {
+            SessionListResponse response = client.workingMemory().listSessions();
+            return response != null && response.getSessions() != null ? response.getSessions() : List.of();
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to list working-memory sessions", e);
+        }
+    }
+
+    public WorkingMemoryResponse appendMessagesToWorkingMemory(
+            String sessionId,
+            List<MemoryMessage> messages,
+            String userId,
+            String modelName
+    ) {
+        try {
+            return client.workingMemory().appendMessagesToWorkingMemory(
+                    sessionId,
+                    messages,
+                    namespace,
+                    modelName,
+                    null,
+                    userId
+            );
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to append working-memory messages", e);
         }
     }
 

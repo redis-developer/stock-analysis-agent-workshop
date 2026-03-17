@@ -5,6 +5,7 @@ services:
     ports:
       - "8000:8000"
     environment:
+      # In this local setup the Agent Memory Server image reaches Redis through the host-mapped port.
       REDIS_URL: redis://localhost:6379
       PORT: 8000
       GENERATION_MODEL: ${AGENT_MEMORY_GENERATION_MODEL:-gpt-4o-mini}
@@ -28,7 +29,7 @@ services:
       start_period: 10s
 
   redis:
-    image: redis/redis-stack-server:latest
+    image: redis
     container_name: stock-analysis-agent-redis
     ports:
       - "6379:6379"

@@ -1,10 +1,9 @@
 package com.redis.stockanalysisagent.memory;
 
-import com.redis.agentmemory.MemoryAPIClient;
-import com.redis.agentmemory.exceptions.MemoryClientException;
 import com.redis.agentmemory.models.workingmemory.MemoryMessage;
 import com.redis.agentmemory.models.workingmemory.WorkingMemory;
 import com.redis.agentmemory.models.workingmemory.WorkingMemoryResponse;
+import com.redis.stockanalysisagent.memory.service.AgentMemoryService;
 import org.springframework.ai.chat.memory.ChatMemoryRepository;
 import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.Message;
@@ -15,6 +14,7 @@ import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Supplier;
 
 /**
  * Spring AI ChatMemoryRepository implementation backed by Agent Memory Server.
@@ -25,22 +25,15 @@ import java.util.List;
 public class AmsChatMemoryRepository implements ChatMemoryRepository {
 
     public static final String SEPARATOR = ":";
-    private static final String DEFAULT_NAMESPACE = "stock-analysis";
     private static final int DEFAULT_TTL_SECONDS = 1800;
     private static final String CONTEXT_MODEL = "gpt-4o";
     private static final Logger log = LoggerFactory.getLogger(AmsChatMemoryRepository.class);
 
-    private final MemoryAPIClient client;
-    private final String namespace;
+    private final AgentMemoryService agentMemoryService;
     private volatile List<String> lastRetrievedMemories = List.of();
 
-    public AmsChatMemoryRepository(MemoryAPIClient client) {
-        this(client, DEFAULT_NAMESPACE);
-    }
-
-    public AmsChatMemoryRepository(MemoryAPIClient client, String namespace) {
-        this.client = client;
-        this.namespace = namespace;
+    public AmsChatMemoryRepository(AgentMemoryService agentMemoryService) {
+        this.agentMemoryService = agentMemoryService;
     }
 
     public static String createConversationId(String userId, String sessionId) {
@@ -56,143 +49,66 @@ public class AmsChatMemoryRepository implements ChatMemoryRepository {
     }
 
     public Double getContextPercentage(String conversationId) {
-        try {
-            WorkingMemoryResponse response = client.workingMemory().getWorkingMemory(
-                    parseSessionId(conversationId),
-                    parseUserId(conversationId),
-                    namespace,
-                    CONTEXT_MODEL,
-                    null
-            );
-            return response != null ? response.getContextPercentageTotalUsed() : null;
-        } catch (Exception ignored) {
-            return null;
-        }
+        WorkingMemoryResponse response = loadWorkingMemory(conversationId, CONTEXT_MODEL);
+        return response != null ? response.getContextPercentageTotalUsed() : null;
     }
 
     @Override
     public List<String> findConversationIds() {
-        try {
-            return client.workingMemory().listSessions().getSessions();
-        } catch (MemoryClientException e) {
-            return List.of();
-        }
+        return callOrDefault("list memory sessions", agentMemoryService::listSessions, List.of());
     }
 
     @Override
     public List<Message> findByConversationId(String conversationId) {
-        try {
-            WorkingMemoryResponse response = client.workingMemory().getWorkingMemory(
-                    parseSessionId(conversationId),
-                    parseUserId(conversationId),
-                    namespace,
-                    null,
-                    null
-            );
-            if (response == null || response.getMessages() == null) {
-                return List.of();
-            }
-
-            List<Message> messages = new ArrayList<>();
-            for (MemoryMessage msg : response.getMessages()) {
-                Message springMessage = convertToSpringMessage(msg);
-                if (springMessage != null) {
-                    messages.add(springMessage);
-                }
-            }
-            return messages;
-        } catch (Exception e) {
+        WorkingMemoryResponse response = loadWorkingMemory(conversationId, null);
+        if (response == null || response.getMessages() == null) {
             return List.of();
         }
+
+        List<Message> messages = new ArrayList<>();
+        for (MemoryMessage msg : response.getMessages()) {
+            Message springMessage = convertToSpringMessage(msg);
+            if (springMessage != null) {
+                messages.add(springMessage);
+            }
+        }
+        return messages;
     }
 
     @Override
     public void saveAll(String conversationId, List<Message> messages) {
         String userId = parseUserId(conversationId);
         String sessionId = parseSessionId(conversationId);
+        List<MemoryMessage> existingMessages = existingMessages(conversationId);
+        List<MemoryMessage> newMessages = toNewMessages(messages, existingMessages);
 
-        try {
-            List<MemoryMessage> existingMessages = new ArrayList<>();
-            try {
-                WorkingMemoryResponse existing = client.workingMemory().getWorkingMemory(
-                        sessionId,
-                        userId,
-                        namespace,
-                        null,
-                        null
-                );
-                if (existing != null && existing.getMessages() != null) {
-                    existingMessages.addAll(existing.getMessages());
-                }
-            } catch (Exception ignored) {
-            }
+        if (newMessages.isEmpty()) {
+            return;
+        }
 
-            List<MemoryMessage> newMessages = new ArrayList<>();
-            for (Message msg : messages) {
-                MemoryMessage amsMsg = convertToAmsMessage(msg);
-                if (amsMsg != null && !isDuplicate(amsMsg, existingMessages)) {
-                    newMessages.add(amsMsg);
-                }
-            }
-
-            if (newMessages.isEmpty()) {
-                return;
-            }
-
+        runSafely("save working memory for conversation " + conversationId, () -> {
             boolean firstMessage = existingMessages.isEmpty();
-            client.workingMemory().appendMessagesToWorkingMemory(
+            agentMemoryService.appendMessagesToWorkingMemory(
                     sessionId,
                     newMessages,
-                    namespace,
-                    CONTEXT_MODEL,
-                    null,
-                    userId
+                    userId,
+                    CONTEXT_MODEL
             );
 
             if (firstMessage) {
-                try {
-                    WorkingMemoryResponse current = client.workingMemory().getWorkingMemory(
-                            sessionId,
-                            userId,
-                            namespace,
-                            null,
-                            null
-                    );
-                    if (current != null && current.getMessages() != null) {
-                        WorkingMemory withTtl = WorkingMemory.builder()
-                                .namespace(namespace)
-                                .sessionId(sessionId)
-                                .messages(current.getMessages())
-                                .userId(userId)
-                                .ttlSeconds(DEFAULT_TTL_SECONDS)
-                                .build();
-                        client.workingMemory().putWorkingMemory(
-                                sessionId,
-                                withTtl,
-                                userId,
-                                namespace,
-                                CONTEXT_MODEL,
-                                null
-                        );
-                    }
-                } catch (Exception ignored) {
-                }
+                applyTtl(sessionId, userId);
             }
-        } catch (Exception e) {
-            log.warn("Skipping Agent Memory Server write for conversation {} because working-memory persistence failed.", conversationId, e);
-        }
+        });
     }
 
     @Override
     public void deleteByConversationId(String conversationId) {
-        try {
-            client.workingMemory().deleteWorkingMemory(
+        runSafely("delete working memory for conversation " + conversationId, () -> {
+            agentMemoryService.deleteWorkingMemory(
                     parseSessionId(conversationId),
-                    parseUserId(conversationId),
-                    namespace
+                    parseUserId(conversationId)
             );
-        } catch (Exception ignored) {
-        }
+        });
     }
 
     private String parseSessionId(String conversationId) {
@@ -253,5 +169,75 @@ public class AmsChatMemoryRepository implements ChatMemoryRepository {
                 .role(role)
                 .content(msg.getText())
                 .build();
+    }
+
+    private WorkingMemoryResponse loadWorkingMemory(String conversationId, String modelName) {
+        return callOrDefault(
+                "load working memory for conversation " + conversationId,
+                () -> agentMemoryService.getWorkingMemory(
+                        parseSessionId(conversationId),
+                        parseUserId(conversationId),
+                        modelName
+                ),
+                null
+        );
+    }
+
+    private List<MemoryMessage> existingMessages(String conversationId) {
+        WorkingMemoryResponse existing = loadWorkingMemory(conversationId, null);
+        if (existing == null || existing.getMessages() == null) {
+            return new ArrayList<>();
+        }
+        return new ArrayList<>(existing.getMessages());
+    }
+
+    private List<MemoryMessage> toNewMessages(List<Message> messages, List<MemoryMessage> existingMessages) {
+        List<MemoryMessage> newMessages = new ArrayList<>();
+        for (Message message : messages) {
+            MemoryMessage amsMessage = convertToAmsMessage(message);
+            if (amsMessage != null && !isDuplicate(amsMessage, existingMessages)) {
+                newMessages.add(amsMessage);
+            }
+        }
+        return newMessages;
+    }
+
+    private void applyTtl(String sessionId, String userId) {
+        WorkingMemoryResponse current = agentMemoryService.getWorkingMemory(sessionId, userId, null);
+        if (current == null || current.getMessages() == null) {
+            return;
+        }
+
+        WorkingMemory withTtl = WorkingMemory.builder()
+                .namespace(agentMemoryService.namespace())
+                .sessionId(sessionId)
+                .messages(current.getMessages())
+                .userId(userId)
+                .ttlSeconds(DEFAULT_TTL_SECONDS)
+                .build();
+
+        agentMemoryService.putWorkingMemory(
+                sessionId,
+                withTtl,
+                userId,
+                CONTEXT_MODEL
+        );
+    }
+
+    private void runSafely(String action, Runnable runnable) {
+        try {
+            runnable.run();
+        } catch (RuntimeException e) {
+            log.warn("Skipping Agent Memory Server action because {} failed.", action, e);
+        }
+    }
+
+    private <T> T callOrDefault(String action, Supplier<T> supplier, T fallback) {
+        try {
+            return supplier.get();
+        } catch (RuntimeException e) {
+            log.warn("Returning fallback because {} failed.", action, e);
+            return fallback;
+        }
     }
 }

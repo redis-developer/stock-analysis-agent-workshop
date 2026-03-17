@@ -63,6 +63,7 @@ docker compose up -d redis agent-memory-server redis-insight
 ```
 
 The repository includes [compose.yaml](/Users/raphaeldelio/Documents/GitHub/stock-analysis-agent/compose.yaml) for that setup.
+On first boot, `agent-memory-server` may need outbound network access to download tokenizer assets used for working-memory token calculations.
 
 ## Local Config
 
@@ -122,6 +123,7 @@ The primary workshop path is now the CLI chat:
 - Spring AI advisors inject short-term and long-term memory
 - the chat layer calls the orchestration stack through a bounded stock-analysis tool
 - the underlying coordinator, specialized agents, and synthesis flow remain explicit application code
+- if Agent Memory has a transient write problem, the chat now keeps answering and degrades memory behavior instead of failing the whole turn
 
 When multiple specialized agents are selected, `SynthesisAgent` uses Spring AI to produce the final grounded response from the structured agent outputs. In test and no-model setups, it falls back to a deterministic synthesis so the workshop remains runnable.
 The orchestration layer dispatches agents dynamically from the execution plan and degrades cleanly when one selected agent fails.
@@ -166,6 +168,7 @@ Recommended chat prompts:
 
 You should not need to repeat `AAPL` once the conversation already established the company.
 When memory is active, the CLI also prints working-memory usage and any retrieved long-term memories returned by the advisor layer.
+If Agent Memory is temporarily unavailable, the chat should still answer, but follow-up context may be weaker until the memory service recovers.
 
 If you want to run the chat layer without the live Redis-backed provider cache, you can fall back to simple local caching:
 
