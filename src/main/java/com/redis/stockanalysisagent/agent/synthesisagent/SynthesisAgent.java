@@ -12,11 +12,10 @@ import com.redis.stockanalysisagent.agent.technicalanalysisagent.TechnicalAnalys
 import com.redis.stockanalysisagent.api.AnalysisRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.ai.chat.client.AdvisorParams;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.client.ResponseEntity;
-import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -24,44 +23,15 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.util.List;
-import java.util.Optional;
 
 @Service
 public class SynthesisAgent {
 
     private static final Logger log = LoggerFactory.getLogger(SynthesisAgent.class);
-
-    private static final String DEFAULT_PROMPT = """
-            ROLE
-            You are the Synthesis Agent for a stock-analysis system.
-
-            RESPONSIBILITY
-            Combine the structured outputs from specialized agents into one grounded answer.
-
-            RULES
-            - Use only the information provided in the prompt.
-            - Do not invent prices, metrics, headlines, or technical signals.
-            - Mention when signals are mixed or incomplete.
-            - Be concise and practical for an investor who asked the question.
-            - Do not mention internal agent names unless it helps clarify uncertainty.
-
-            OUTPUT
-            Return valid JSON matching the requested schema.
-            The finalAnswer should be a concise paragraph or two.
-            """;
-
     private final ChatClient synthesisChatClient;
 
-    public SynthesisAgent(Optional<ChatModel> chatModel) {
-        if (chatModel.isEmpty()) {
-            this.synthesisChatClient = null;
-            return;
-        }
-
-        this.synthesisChatClient = ChatClient.builder(chatModel.orElseThrow())
-                .defaultAdvisors(AdvisorParams.ENABLE_NATIVE_STRUCTURED_OUTPUT)
-                .defaultSystem(DEFAULT_PROMPT)
-                .build();
+    public SynthesisAgent(@Qualifier("synthesisChatClient") ChatClient synthesisChatClient) {
+        this.synthesisChatClient = synthesisChatClient;
     }
 
     public String synthesize(
@@ -76,19 +46,6 @@ public class SynthesisAgent {
         long pendingAgents = agentExecutions.stream()
                 .filter(execution -> execution.status() != AgentExecutionStatus.COMPLETED)
                 .count();
-
-        if (synthesisChatClient == null) {
-            return fallbackAnswer(
-                    request,
-                    executionPlan,
-                    marketSnapshot,
-                    fundamentalsSnapshot,
-                    newsSnapshot,
-                    technicalAnalysisSnapshot,
-                    agentExecutions,
-                    pendingAgents
-            );
-        }
 
         try {
             ResponseEntity<ChatResponse, SynthesisResponse> response = synthesisChatClient

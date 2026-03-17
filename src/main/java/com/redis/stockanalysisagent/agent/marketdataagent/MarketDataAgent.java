@@ -3,58 +3,25 @@ package com.redis.stockanalysisagent.agent.marketdataagent;
 import com.redis.stockanalysisagent.integrations.marketdata.MarketDataProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.ai.chat.client.AdvisorParams;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.client.ResponseEntity;
-import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
-
-import java.util.Optional;
 
 @Service
 public class MarketDataAgent {
 
     private static final Logger log = LoggerFactory.getLogger(MarketDataAgent.class);
-
-    private static final String DEFAULT_PROMPT = """
-            ROLE
-            You are the Market Data Agent for a stock-analysis system.
-
-            RESPONSIBILITY
-            Use the available tools to fetch current market data for the requested ticker and return a grounded result.
-
-            RULES
-            - Always use the market-data tools before returning a completed result.
-            - Never invent prices, percentages, timestamps, or sources.
-            - Use the exact tool result to populate finalResponse.
-            - Keep message concise and directly useful to the user.
-            - Return valid JSON matching the requested schema.
-
-            COMPLETION
-            - Return finishReason = COMPLETED when finalResponse is available.
-            - Return finishReason = ERROR only when the task cannot be completed.
-            """;
-
     private final MarketDataProvider marketDataProvider;
     private final ChatClient marketDataChatClient;
 
     public MarketDataAgent(
             MarketDataProvider marketDataProvider,
-            MarketDataTools marketDataTools,
-            Optional<ChatModel> chatModel
+            @Qualifier("marketDataChatClient") ChatClient marketDataChatClient
     ) {
         this.marketDataProvider = marketDataProvider;
-        if (chatModel.isEmpty()) {
-            this.marketDataChatClient = null;
-            return;
-        }
-
-        this.marketDataChatClient = ChatClient.builder(chatModel.orElseThrow())
-                .defaultAdvisors(AdvisorParams.ENABLE_NATIVE_STRUCTURED_OUTPUT)
-                .defaultTools(marketDataTools)
-                .defaultSystem(DEFAULT_PROMPT)
-                .build();
+        this.marketDataChatClient = marketDataChatClient;
     }
 
     public MarketDataResult execute(String ticker) {
@@ -62,10 +29,6 @@ public class MarketDataAgent {
     }
 
     public MarketDataResult execute(String ticker, String question) {
-        if (marketDataChatClient == null) {
-            return fallbackResult(ticker);
-        }
-
         try {
             ResponseEntity<ChatResponse, MarketDataResult> response = marketDataChatClient
                     .prompt()

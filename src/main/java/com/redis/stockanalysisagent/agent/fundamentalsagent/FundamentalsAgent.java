@@ -4,47 +4,31 @@ import com.redis.stockanalysisagent.agent.marketdataagent.MarketSnapshot;
 import com.redis.stockanalysisagent.integrations.fundamentals.FundamentalsProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.ai.chat.client.AdvisorParams;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.client.ResponseEntity;
-import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.Optional;
+import java.util.function.Function;
 
 @Service
 public class FundamentalsAgent {
 
     private static final Logger log = LoggerFactory.getLogger(FundamentalsAgent.class);
-
-    private static final String DEFAULT_PROMPT = """
-            ROLE
-            You are the Fundamentals Agent for a stock-analysis system.
-
-            RESPONSIBILITY
-            Use the available tool to fetch a grounded fundamentals snapshot for the requested ticker and return a concise investor-focused result.
-
-            RULES
-            - Always use the fundamentals tool before returning a completed result.
-            - Never invent revenue, income, margins, valuation ratios, filing dates, or source fields.
-            - Use the exact tool result to populate finalResponse.
-            - message should answer the user's question in plain language and stay concise.
-            - Return valid JSON matching the requested schema.
-
-            COMPLETION
-            - Return finishReason = COMPLETED when finalResponse is available.
-            - Return finishReason = ERROR only when the task cannot be completed.
-            """;
-
     private final FundamentalsProvider fundamentalsProvider;
-    private final Optional<ChatModel> chatModel;
+    private final Function<Optional<MarketSnapshot>, ChatClient> fundamentalsChatClientFactory;
 
-    public FundamentalsAgent(FundamentalsProvider fundamentalsProvider, Optional<ChatModel> chatModel) {
+    public FundamentalsAgent(
+            FundamentalsProvider fundamentalsProvider,
+            @Qualifier("fundamentalsChatClientFactory")
+            Function<Optional<MarketSnapshot>, ChatClient> fundamentalsChatClientFactory
+    ) {
         this.fundamentalsProvider = fundamentalsProvider;
-        this.chatModel = chatModel;
+        this.fundamentalsChatClientFactory = fundamentalsChatClientFactory;
     }
 
     public FundamentalsResult execute(String ticker) {
@@ -64,16 +48,8 @@ public class FundamentalsAgent {
     }
 
     private FundamentalsResult execute(String ticker, String question, Optional<MarketSnapshot> marketSnapshot) {
-        if (chatModel.isEmpty()) {
-            return fallbackResult(ticker, marketSnapshot);
-        }
-
         try {
-            ChatClient fundamentalsChatClient = ChatClient.builder(chatModel.orElseThrow())
-                    .defaultAdvisors(AdvisorParams.ENABLE_NATIVE_STRUCTURED_OUTPUT)
-                    .defaultTools(new FundamentalsTools(fundamentalsProvider, marketSnapshot))
-                    .defaultSystem(DEFAULT_PROMPT)
-                    .build();
+            ChatClient fundamentalsChatClient = fundamentalsChatClientFactory.apply(marketSnapshot);
 
             ResponseEntity<ChatResponse, FundamentalsResult> response = fundamentalsChatClient
                     .prompt()
