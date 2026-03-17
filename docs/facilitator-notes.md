@@ -45,12 +45,12 @@ Recommended live prompts:
 5. `Give me a full view on Apple with fundamentals, news, and technical analysis`
 
 That sequence shows the system moving from single-agent routing to full orchestration.
-It also gives you a clean moment to explain that the market-data specialist is now tool-backed while the other specialist agents are still being evolved toward that pattern.
+It also gives you a clean moment to explain that market data and fundamentals are now tool-backed while the other specialist agents are still being evolved toward that pattern.
 
 ## What To Explain Out Loud
 
 - The coordinator is LLM-backed and decides which specialized agents to run.
-- MarketDataAgent is now the first specialist agent that is also LLM-backed through Spring AI tools.
+- MarketDataAgent and FundamentalsAgent are now specialist agents that are also LLM-backed through Spring AI tools.
 - The other specialist agents still lean mostly deterministic today.
 - Deterministic providers still fetch or compute the underlying facts.
 - The model is used mainly for routing and synthesis, not for inventing market data.

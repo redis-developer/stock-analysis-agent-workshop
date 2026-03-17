@@ -21,7 +21,11 @@ public class FundamentalsResult {
     }
 
     public static FundamentalsResult completed(FundamentalsSnapshot finalResponse) {
-        return new FundamentalsResult(FinishReason.COMPLETED, null, finalResponse);
+        return completed(null, finalResponse);
+    }
+
+    public static FundamentalsResult completed(String message, FundamentalsSnapshot finalResponse) {
+        return new FundamentalsResult(FinishReason.COMPLETED, message, finalResponse);
     }
 
     public static FundamentalsResult error(String message) {

@@ -175,6 +175,7 @@ public class AgentOrchestrationService {
                     ),
                     null,
                     marketDataResult.getMessage(),
+                    null,
                     marketDataResult.getFinalResponse(),
                     null,
                     null,
@@ -188,19 +189,20 @@ public class AgentOrchestrationService {
     private AgentExecutionOutcome executeFundamentals(AnalysisRequest request, MarketSnapshot marketSnapshot) {
         try {
             FundamentalsResult fundamentalsResult = marketSnapshot != null
-                    ? fundamentalsAgent.execute(request.ticker(), marketSnapshot)
-                    : fundamentalsAgent.execute(request.ticker());
+                    ? fundamentalsAgent.execute(request.ticker(), request.question(), marketSnapshot)
+                    : fundamentalsAgent.execute(request.ticker(), request.question());
 
             return AgentExecutionOutcome.completed(
                     new AgentExecution(
                             AgentType.FUNDAMENTALS,
                             AgentExecutionStatus.COMPLETED,
                             marketSnapshot != null
-                                    ? "Fundamentals Agent analyzed SEC company facts with market-price context."
-                                    : "Fundamentals Agent analyzed SEC company facts for the requested ticker."
+                                    ? "Fundamentals Agent used its fundamentals tool with market-price context."
+                                    : "Fundamentals Agent used its fundamentals tool to fetch a normalized snapshot."
                     ),
                     null,
                     null,
+                    fundamentalsResult.getMessage(),
                     null,
                     fundamentalsResult.getFinalResponse(),
                     null,
@@ -220,6 +222,7 @@ public class AgentOrchestrationService {
                             AgentExecutionStatus.COMPLETED,
                             "News Agent collected recent company-event signals and web news relevant to the requested ticker."
                     ),
+                    null,
                     null,
                     null,
                     null,
@@ -246,6 +249,7 @@ public class AgentOrchestrationService {
                     null,
                     null,
                     null,
+                    null,
                     technicalAnalysisResult.getFinalResponse()
             );
         } catch (RuntimeException ex) {
@@ -267,6 +271,7 @@ public class AgentOrchestrationService {
                 null,
                 null,
                 null,
+                null,
                 null
         );
     }
@@ -281,6 +286,9 @@ public class AgentOrchestrationService {
         }
         if (outcome.marketSnapshot != null) {
             state.marketSnapshot = outcome.marketSnapshot;
+        }
+        if (outcome.fundamentalsDirectAnswer != null && !outcome.fundamentalsDirectAnswer.isBlank()) {
+            state.fundamentalsDirectAnswer = outcome.fundamentalsDirectAnswer;
         }
         if (outcome.fundamentalsSnapshot != null) {
             state.fundamentalsSnapshot = outcome.fundamentalsSnapshot;
@@ -302,6 +310,9 @@ public class AgentOrchestrationService {
         }
 
         if (shouldUseDirectFundamentalsAnswer(executionPlan, state.fundamentalsSnapshot)) {
+            if (state.fundamentalsDirectAnswer != null && !state.fundamentalsDirectAnswer.isBlank()) {
+                return state.fundamentalsDirectAnswer;
+            }
             return fundamentalsAgent.createDirectAnswer(state.fundamentalsSnapshot);
         }
 
@@ -435,6 +446,7 @@ public class AgentOrchestrationService {
         private final List<AgentExecution> agentExecutions = new ArrayList<>();
         private final List<String> limitations = new ArrayList<>();
         private String marketDirectAnswer;
+        private String fundamentalsDirectAnswer;
         private MarketSnapshot marketSnapshot;
         private FundamentalsSnapshot fundamentalsSnapshot;
         private NewsSnapshot newsSnapshot;
@@ -445,6 +457,7 @@ public class AgentOrchestrationService {
         private final AgentExecution execution;
         private final String limitations;
         private final String marketDirectAnswer;
+        private final String fundamentalsDirectAnswer;
         private final MarketSnapshot marketSnapshot;
         private final FundamentalsSnapshot fundamentalsSnapshot;
         private final NewsSnapshot newsSnapshot;
@@ -454,6 +467,7 @@ public class AgentOrchestrationService {
                 AgentExecution execution,
                 String limitations,
                 String marketDirectAnswer,
+                String fundamentalsDirectAnswer,
                 MarketSnapshot marketSnapshot,
                 FundamentalsSnapshot fundamentalsSnapshot,
                 NewsSnapshot newsSnapshot,
@@ -462,6 +476,7 @@ public class AgentOrchestrationService {
             this.execution = execution;
             this.limitations = limitations;
             this.marketDirectAnswer = marketDirectAnswer;
+            this.fundamentalsDirectAnswer = fundamentalsDirectAnswer;
             this.marketSnapshot = marketSnapshot;
             this.fundamentalsSnapshot = fundamentalsSnapshot;
             this.newsSnapshot = newsSnapshot;
@@ -472,6 +487,7 @@ public class AgentOrchestrationService {
                 AgentExecution execution,
                 String limitation,
                 String marketDirectAnswer,
+                String fundamentalsDirectAnswer,
                 MarketSnapshot marketSnapshot,
                 FundamentalsSnapshot fundamentalsSnapshot,
                 NewsSnapshot newsSnapshot,
@@ -481,6 +497,7 @@ public class AgentOrchestrationService {
                     execution,
                     limitation,
                     marketDirectAnswer,
+                    fundamentalsDirectAnswer,
                     marketSnapshot,
                     fundamentalsSnapshot,
                     newsSnapshot,

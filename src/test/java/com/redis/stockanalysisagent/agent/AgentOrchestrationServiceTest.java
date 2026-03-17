@@ -79,32 +79,35 @@ class AgentOrchestrationServiceTest {
                             }),
                             Optional.empty()
                     ),
-                    new FundamentalsAgent((ticker, marketSnapshot) -> {
-                        fundamentalsObservedPrice.set(marketSnapshot.map(MarketSnapshot::currentPrice).orElse(null));
-                        return new FundamentalsSnapshot(
-                                ticker.toUpperCase(),
-                                "Apple Inc.",
-                                "0000320193",
-                                new BigDecimal("400000000000.00"),
-                                new BigDecimal("380000000000.00"),
-                                new BigDecimal("5.26"),
-                                new BigDecimal("100000000000.00"),
-                                new BigDecimal("120000000000.00"),
-                                new BigDecimal("30.00"),
-                                new BigDecimal("25.00"),
-                                new BigDecimal("30000000000.00"),
-                                new BigDecimal("90000000000.00"),
-                                new BigDecimal("15000000000.00"),
-                                fundamentalsObservedPrice.get(),
-                                new BigDecimal("2250000000000.00"),
-                                new BigDecimal("7.50"),
-                                new BigDecimal("6.50"),
-                                new BigDecimal("23.08"),
-                                LocalDate.parse("2025-09-27"),
-                                LocalDate.parse("2025-11-01"),
-                                "test-sec"
-                        );
-                    }),
+                    new FundamentalsAgent(
+                            (ticker, marketSnapshot) -> {
+                                fundamentalsObservedPrice.set(marketSnapshot.map(MarketSnapshot::currentPrice).orElse(null));
+                                return new FundamentalsSnapshot(
+                                        ticker.toUpperCase(),
+                                        "Apple Inc.",
+                                        "0000320193",
+                                        new BigDecimal("400000000000.00"),
+                                        new BigDecimal("380000000000.00"),
+                                        new BigDecimal("5.26"),
+                                        new BigDecimal("100000000000.00"),
+                                        new BigDecimal("120000000000.00"),
+                                        new BigDecimal("30.00"),
+                                        new BigDecimal("25.00"),
+                                        new BigDecimal("30000000000.00"),
+                                        new BigDecimal("90000000000.00"),
+                                        new BigDecimal("15000000000.00"),
+                                        fundamentalsObservedPrice.get(),
+                                        new BigDecimal("2250000000000.00"),
+                                        new BigDecimal("7.50"),
+                                        new BigDecimal("6.50"),
+                                        new BigDecimal("23.08"),
+                                        LocalDate.parse("2025-09-27"),
+                                        LocalDate.parse("2025-11-01"),
+                                        "test-sec"
+                                );
+                            },
+                            Optional.empty()
+                    ),
                     new NewsAgent(
                             ticker -> {
                                 newsStarted.countDown();

@@ -548,6 +548,63 @@ Expected result:
 
 This slice introduces the workshop’s preferred pattern for tool-backed specialists: the LLM decides which coarse tool to use inside the agent, but the actual external call still goes through the cached provider seam so we do not lose control over cost or duplication.
 
+## Part 11: Tool-Backed Fundamentals Agent
+
+### Objective
+
+Convert `FundamentalsAgent` into the next specialist agent that uses Spring AI tool-calling while still relying on the cached SEC provider layer and any market context already gathered by orchestration.
+
+### What Learners Build
+
+1. A `FundamentalsTools` wrapper with a coarse `getFundamentalsSnapshot` tool.
+2. A tool-aware `ChatClient` inside `FundamentalsAgent`.
+3. A fundamentals prompt that requires tool use before returning a completed result.
+4. A deterministic fallback path when no chat model is configured.
+5. A direct-answer path that can reuse the fundamentals agent's own message for fundamentals-only requests.
+
+### Acceptance Criteria
+
+- `FundamentalsAgent` uses Spring AI tools at runtime when a chat model is configured
+- the tool returns normalized fundamentals data from the existing SEC provider seam
+- cached SEC lookups still prevent repeated external API hits
+- market context from orchestration can still flow into the fundamentals snapshot without triggering a second market-data lookup
+- the fundamentals-only path still works in test and no-model runs
+- tests cover the deterministic fallback path
+
+### Automated Validation
+
+- run `./gradlew test`
+- verify there is a fundamentals agent test covering the no-model fallback path
+
+### Manual Smoke Test
+
+Make sure Redis is running:
+
+```bash
+docker compose up -d redis
+```
+
+Then run:
+
+```bash
+./gradlew bootRun
+```
+
+Enter:
+
+- `How strong are Apple's fundamentals right now?`
+- then `AAPL` if the coordinator asks for the ticker
+
+Expected result:
+
+- the coordinator routes to `FUNDAMENTALS`
+- the fundamentals agent completes successfully
+- the final answer returns a direct fundamentals assessment
+
+### Teaching Point
+
+This slice extends the same tool-backed pattern from market data into SEC-backed analysis. The LLM can decide how to use the coarse fundamentals tool, but the actual data retrieval still stays behind the cached provider layer, which keeps the system grounded and avoids duplicate upstream calls.
+
 ## Authoring Rule
 
 Whenever a new workshop slice lands in the codebase, update this file with:

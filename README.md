@@ -27,6 +27,7 @@ Build a predictable orchestration system where:
 - news: hybrid SEC filings plus Tavily web search
 - technical analysis: Twelve Data time series with Java-calculated indicators
 - market data agent: now LLM-backed with Spring AI tools over the cached provider layer
+- fundamentals agent: now LLM-backed with Spring AI tools over the cached SEC provider layer
 - current runtime default: Twelve Data
 - current fundamentals default: SEC
 - current news default: SEC plus optional Tavily enrichment
@@ -111,6 +112,7 @@ The orchestration layer now dispatches agents dynamically from the execution pla
 Independent agents now fan out through `CompletableFuture` on a Spring-managed executor, while synthesis still waits for the selected analysis tasks to finish.
 External provider calls now go through a Redis-backed cache layer so repeated market, SEC, and Tavily lookups are not triggered unnecessarily.
 `MarketDataAgent` is now the first tool-backed specialist agent: it uses Spring AI tool-calling on top of the cached market-data provider instead of fetching quotes directly in plain service code.
+`FundamentalsAgent` now follows the same pattern: it uses Spring AI tool-calling on top of the cached SEC fundamentals provider and can reuse market context from orchestration when it is already available.
 
 ## CLI Mode
 

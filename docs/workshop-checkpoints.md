@@ -299,6 +299,42 @@ Manual:
 
 This is the first specialist-agent conversion pattern. The LLM now decides how to use a bounded tool inside `MarketDataAgent`, but the actual provider call still goes through the cache-aware service layer so repeated upstream requests stay controlled.
 
+## Checkpoint 11: Tool-Backed Fundamentals Agent
+
+### Learners Implement
+
+- a `FundamentalsTools` wrapper with a coarse `getFundamentalsSnapshot` Spring AI tool
+- a tool-aware `ChatClient` inside `FundamentalsAgent`
+- a fundamentals prompt that requires tool usage before returning a completed result
+- a deterministic fallback path for test and no-model runs
+- direct-answer wiring so fundamentals-only requests can reuse the fundamentals agent's own message
+
+### Facilitator Provides
+
+- the cached SEC provider seam from earlier checkpoints
+- the existing market-context handoff from orchestration into fundamentals
+- the Redis cache layer that already protects upstream provider calls
+
+### Validation
+
+Automated:
+
+- `./gradlew test`
+- confirm there is a dedicated fundamentals agent test covering the no-model fallback path
+
+Manual:
+
+- run `docker compose up -d redis`
+- run `./gradlew bootRun`
+- enter `How strong are Apple's fundamentals right now?`
+- answer `AAPL` if the coordinator asks for a ticker
+- confirm `Selected agents` contains `FUNDAMENTALS`
+- confirm the request returns a direct fundamentals answer
+
+### Teaching Point
+
+This is the second specialist-agent conversion pattern. The LLM now controls a bounded SEC-backed tool inside `FundamentalsAgent`, but the actual SEC and optional market-context retrieval still stay behind the cache-aware provider layer so we do not lose control over duplication or cost.
+
 ## Delivery Recommendation
 
 If time is tight, treat these as the must-hit live checkpoints:
@@ -310,3 +346,4 @@ If time is tight, treat these as the must-hit live checkpoints:
 5. Checkpoint 8 for true orchestration maturity
 6. Checkpoint 9 for production-minded provider caching
 7. Checkpoint 10 for the first tool-backed specialist agent
+8. Checkpoint 11 for the second tool-backed specialist agent

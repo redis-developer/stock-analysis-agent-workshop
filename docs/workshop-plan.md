@@ -40,13 +40,14 @@ Build a stock-analysis multi-agent orchestration application with Spring AI wher
   - Safe parallel fan-out for independent agents via `CompletableFuture`
   - Redis-backed provider caching with duplicate-call protection and local Docker Compose support
   - Market data converted into the first tool-backed LLM specialist agent
+  - Fundamentals converted into the second tool-backed LLM specialist agent
 - In progress
   - Hardening milestone
   - Workshop polish milestone
 - Next up
   - add timeouts and retry boundaries around external providers
   - add workshop checkpoint tags or branches when the teaching path is stable
-  - decide how to evolve fundamentals and technical analysis toward tool-backed LLM flows without duplicating provider calls
+  - decide how to evolve technical analysis and news toward tool-backed LLM flows without duplicating provider calls
 
 ## Milestones
 
@@ -87,7 +88,7 @@ If a milestone cannot be verified through all three, it is not done.
 - the project now uses the Spring AI OpenAI starter for local model access.
 - `agent/marketdataagent/MarketDataAgent` is now the first tool-backed specialist agent and uses Spring AI tool-calling against the cached market-data provider.
 - `agent/marketdataagent/MarketDataResult` holds the market-agent result.
-- `agent/fundamentalsagent/FundamentalsAgent` executes the deterministic fundamentals step.
+- `agent/fundamentalsagent/FundamentalsAgent` is now the second tool-backed specialist agent and uses Spring AI tool-calling against the cached fundamentals provider.
 - `agent/fundamentalsagent/FundamentalsResult` holds the fundamentals-agent result.
 - `agent/newsagent/NewsAgent` executes the hybrid recent-events and web-news step.
 - `agent/newsagent/NewsResult` holds the news-agent result.
@@ -109,6 +110,7 @@ If a milestone cannot be verified through all three, it is not done.
 - the current runtime parallelizes independent specialized agents but still lets dependent work, such as fundamentals with market-price context, wait for the data it needs.
 - repeated external provider calls are now deduplicated through the cache layer, which is important both for the current orchestration flow and for future tool-backed specialist agents.
 - market data is the first specialist agent using Spring AI tools, which gives the workshop a concrete pattern for converting more specialized agents later.
+- fundamentals now follows the same tool-backed specialist pattern and can reuse market context from orchestration without re-triggering market APIs.
 - Integration and orchestration tests are green and provide a simple routing override for repeatable verification.
 - the repository now includes separate learner instructions, checkpoint mapping, and facilitator notes so the teaching path is no longer implicit.
 
