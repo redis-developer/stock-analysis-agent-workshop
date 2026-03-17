@@ -2,6 +2,7 @@ package com.redis.stockanalysisagent.fundamentals.sec;
 
 import com.redis.stockanalysisagent.agent.fundamentalsagent.FundamentalsSnapshot;
 import com.redis.stockanalysisagent.agent.marketdataagent.MarketSnapshot;
+import com.redis.stockanalysisagent.cache.CacheNames;
 import com.redis.stockanalysisagent.cache.ExternalDataCache;
 import com.redis.stockanalysisagent.sec.SecTickerLookupService;
 import org.junit.jupiter.api.Test;
@@ -14,6 +15,9 @@ import org.springframework.web.client.RestClient;
 import java.math.BigDecimal;
 import java.net.URI;
 import java.time.OffsetDateTime;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -270,6 +274,43 @@ class SecFundamentalsProviderTest {
         server.verify();
     }
 
+    @Test
+    void normalizesCachedCompanyFactsStoredAsMap() {
+        RestClient.Builder restClientBuilder = RestClient.builder();
+        MockRestServiceServer server = MockRestServiceServer.bindTo(restClientBuilder).build();
+        ConcurrentMapCacheManager cacheManager = new ConcurrentMapCacheManager();
+        ExternalDataCache cache = new ExternalDataCache(cacheManager);
+        SecProperties properties = properties();
+        SecFundamentalsProvider provider = new SecFundamentalsProvider(
+                restClientBuilder,
+                properties,
+                new SecTickerLookupService(restClientBuilder, properties, cache),
+                cache
+        );
+
+        server.expect(requestTo("https://www.sec.gov/files/company_tickers.json"))
+                .andExpect(method(HttpMethod.GET))
+                .andRespond(withSuccess("""
+                        {
+                          "0": {
+                            "cik_str": 320193,
+                            "ticker": "AAPL",
+                            "title": "Apple Inc."
+                          }
+                        }
+                        """, MediaType.APPLICATION_JSON));
+
+        cacheManager.getCache(CacheNames.SEC_COMPANY_FACTS).put("0000320193", companyFactsPayloadMap());
+
+        FundamentalsSnapshot snapshot = provider.fetchSnapshot("AAPL", Optional.empty());
+
+        assertThat(snapshot.companyName()).isEqualTo("Apple Inc.");
+        assertThat(snapshot.revenue()).hasToString("400000000000.00");
+        assertThat(snapshot.source()).isEqualTo("sec");
+
+        server.verify();
+    }
+
     private SecProperties properties() {
         SecProperties properties = new SecProperties();
         properties.setDataBaseUrl(URI.create("https://data.sec.gov"));
@@ -280,5 +321,88 @@ class SecFundamentalsProviderTest {
 
     private ExternalDataCache cache() {
         return new ExternalDataCache(new ConcurrentMapCacheManager());
+    }
+
+    private Map<String, Object> companyFactsPayloadMap() {
+        return Map.of(
+                "facts", Map.of(
+                        "us-gaap", Map.of(
+                                "RevenueFromContractWithCustomerExcludingAssessedTax", Map.of(
+                                        "units", Map.of(
+                                                "USD", List.of(
+                                                        fact("2023-09-30", "2024-09-28", "400000000000", "2024-11-01", "10-K", "FY"),
+                                                        fact("2022-10-01", "2023-09-30", "380000000000", "2023-11-03", "10-K", "FY")
+                                                )
+                                        )
+                                ),
+                                "NetIncomeLoss", Map.of(
+                                        "units", Map.of(
+                                                "USD", List.of(fact("2023-09-30", "2024-09-28", "100000000000", "2024-11-01", "10-K", "FY"))
+                                        )
+                                ),
+                                "OperatingIncomeLoss", Map.of(
+                                        "units", Map.of(
+                                                "USD", List.of(fact("2023-09-30", "2024-09-28", "120000000000", "2024-11-01", "10-K", "FY"))
+                                        )
+                                ),
+                                "CashAndCashEquivalentsAtCarryingValue", Map.of(
+                                        "units", Map.of(
+                                                "USD", List.of(instantFact("2024-09-28", "30000000000", "2024-11-01", "10-K", "FY"))
+                                        )
+                                ),
+                                "LongTermDebtNoncurrent", Map.of(
+                                        "units", Map.of(
+                                                "USD", List.of(instantFact("2024-09-28", "90000000000", "2024-11-01", "10-K", "FY"))
+                                        )
+                                ),
+                                "EarningsPerShareDiluted", Map.of(
+                                        "units", Map.of(
+                                                "USD/shares", List.of(fact("2023-09-30", "2024-09-28", "6.5", "2024-11-01", "10-K", "FY"))
+                                        )
+                                )
+                        ),
+                        "dei", Map.of(
+                                "EntityCommonStockSharesOutstanding", Map.of(
+                                        "units", Map.of(
+                                                "shares", List.of(instantFact("2024-09-28", "15000000000", "2024-11-01", "10-K", "FY"))
+                                        )
+                                )
+                        )
+                )
+        );
+    }
+
+    private Map<String, Object> fact(
+            String start,
+            String end,
+            String value,
+            String filed,
+            String form,
+            String filingPeriod
+    ) {
+        Map<String, Object> fact = new LinkedHashMap<>();
+        fact.put("start", start);
+        fact.put("end", end);
+        fact.put("val", value);
+        fact.put("filed", filed);
+        fact.put("form", form);
+        fact.put("fp", filingPeriod);
+        return fact;
+    }
+
+    private Map<String, Object> instantFact(
+            String end,
+            String value,
+            String filed,
+            String form,
+            String filingPeriod
+    ) {
+        Map<String, Object> fact = new LinkedHashMap<>();
+        fact.put("end", end);
+        fact.put("val", value);
+        fact.put("filed", filed);
+        fact.put("form", form);
+        fact.put("fp", filingPeriod);
+        return fact;
     }
 }

@@ -7,6 +7,7 @@ import com.redis.stockanalysisagent.cache.ExternalDataCache;
 import com.redis.stockanalysisagent.fundamentals.sec.SecProperties;
 import com.redis.stockanalysisagent.news.NewsProvider;
 import com.redis.stockanalysisagent.sec.SecCompanyReference;
+import com.redis.stockanalysisagent.sec.SecJsonNodeSupport;
 import com.redis.stockanalysisagent.sec.SecTickerLookupService;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
@@ -88,7 +89,7 @@ public class SecNewsProvider implements NewsProvider {
     }
 
     private JsonNode fetchSubmissions(SecCompanyReference companyReference) {
-        return externalDataCache.getOrLoad(
+        Object cachedPayload = externalDataCache.getOrLoad(
                 CacheNames.SEC_SUBMISSIONS,
                 companyReference.cik(),
                 () -> {
@@ -104,6 +105,7 @@ public class SecNewsProvider implements NewsProvider {
                     return payload;
                 }
         );
+        return SecJsonNodeSupport.normalize(cachedPayload, "SEC submissions for " + companyReference.ticker());
     }
 
     private List<SecFiling> extractFilings(JsonNode recent, SecCompanyReference companyReference) {

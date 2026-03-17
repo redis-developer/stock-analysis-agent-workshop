@@ -6,6 +6,7 @@ import com.redis.stockanalysisagent.cache.CacheNames;
 import com.redis.stockanalysisagent.cache.ExternalDataCache;
 import com.redis.stockanalysisagent.fundamentals.FundamentalsProvider;
 import com.redis.stockanalysisagent.sec.SecCompanyReference;
+import com.redis.stockanalysisagent.sec.SecJsonNodeSupport;
 import com.redis.stockanalysisagent.sec.SecTickerLookupService;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
@@ -119,7 +120,7 @@ public class SecFundamentalsProvider implements FundamentalsProvider {
     }
 
     private JsonNode fetchCompanyFacts(SecCompanyReference companyReference) {
-        return externalDataCache.getOrLoad(
+        Object cachedPayload = externalDataCache.getOrLoad(
                 CacheNames.SEC_COMPANY_FACTS,
                 companyReference.cik(),
                 () -> {
@@ -135,6 +136,7 @@ public class SecFundamentalsProvider implements FundamentalsProvider {
                     return payload;
                 }
         );
+        return SecJsonNodeSupport.normalize(cachedPayload, "SEC company facts for " + companyReference.ticker());
     }
 
     private SecFactValue latestAnnualFact(JsonNode facts, String taxonomy, List<String> concepts, String unitKey) {
