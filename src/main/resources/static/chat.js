@@ -105,6 +105,7 @@
                 timestamp: new Date().toISOString(),
                 memories: response.retrievedMemories || [],
                 fromSemanticCache: Boolean(response.fromSemanticCache),
+                triggeredAgents: Array.isArray(response.triggeredAgents) ? response.triggeredAgents : [],
                 responseTimeMs: Number.isFinite(response.responseTimeMs) ? response.responseTimeMs : null
             });
             setStatus("Response received");
@@ -304,37 +305,79 @@
         content.appendChild(paragraph);
         article.appendChild(content);
 
-        if (message.memories && message.memories.length > 0) {
-            article.appendChild(buildMemoryPanel(message.memories));
+        const supplements = buildSupplementPanels(message);
+        if (supplements) {
+            article.appendChild(supplements);
         }
 
         return article;
     }
 
-    function buildMemoryPanel(memories) {
+    function buildSupplementPanels(message) {
+        const panels = [];
+        const memories = Array.isArray(message.memories) ? message.memories : [];
+        const hasTriggeredAgentMetadata = Array.isArray(message.triggeredAgents);
+        const triggeredAgents = hasTriggeredAgentMetadata ? message.triggeredAgents : [];
+
+        if (memories.length > 0) {
+            panels.push(buildDisclosurePanel("Retrieved memories", memories, function (memory) {
+                const item = document.createElement("li");
+                item.textContent = memory;
+                return item;
+            }));
+        }
+
+        if (message.role === "assistant" && hasTriggeredAgentMetadata) {
+            panels.push(buildDisclosurePanel("Triggered agents", triggeredAgents, function (agentName) {
+                const item = document.createElement("li");
+                item.textContent = formatAgentLabel(agentName);
+                return item;
+            }, "No sub-agents triggered."));
+        }
+
+        if (panels.length === 0) {
+            return null;
+        }
+
+        const container = document.createElement("div");
+        container.className = "message__supplements";
+        panels.forEach(function (panel) {
+            container.appendChild(panel);
+        });
+        return container;
+    }
+
+    function buildDisclosurePanel(title, items, renderItem, emptyText) {
         const wrapper = document.createElement("details");
-        wrapper.className = "message__memories";
+        wrapper.className = "message__disclosure";
 
         const summary = document.createElement("summary");
-        summary.className = "message__memories-summary";
+        summary.className = "message__disclosure-summary";
 
         const label = document.createElement("span");
-        label.className = "message__memories-label";
-        label.textContent = "Retrieved memories";
+        label.className = "message__disclosure-label";
+        label.textContent = title;
         summary.appendChild(label);
 
         const count = document.createElement("span");
-        count.className = "message__memories-count";
-        count.textContent = String(memories.length);
+        count.className = "message__disclosure-count";
+        count.textContent = String(items.length);
         summary.appendChild(count);
 
         wrapper.appendChild(summary);
 
+        if (items.length === 0) {
+            const empty = document.createElement("p");
+            empty.className = "message__disclosure-empty";
+            empty.textContent = emptyText || "No items.";
+            wrapper.appendChild(empty);
+            return wrapper;
+        }
+
         const list = document.createElement("ul");
-        for (const memory of memories) {
-            const item = document.createElement("li");
-            item.textContent = memory;
-            list.appendChild(item);
+        list.className = "message__disclosure-list";
+        for (const itemValue of items) {
+            list.appendChild(renderItem(itemValue));
         }
         wrapper.appendChild(list);
 
@@ -493,6 +536,16 @@
         }
 
         return "session-" + Date.now();
+    }
+
+    function formatAgentLabel(agentName) {
+        return String(agentName || "")
+            .toLowerCase()
+            .split("_")
+            .map(function (segment) {
+                return segment ? segment.charAt(0).toUpperCase() + segment.slice(1) : segment;
+            })
+            .join(" ");
     }
 
     function normalizeUserId(userId) {

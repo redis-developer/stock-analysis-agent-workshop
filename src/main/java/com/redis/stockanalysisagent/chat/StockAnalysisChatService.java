@@ -81,7 +81,8 @@ public class StockAnalysisChatService {
                     conversationId,
                     response,
                     memoryRepository.getLastRetrievedMemories(),
-                    metadata.fromSemanticCache()
+                    metadata.fromSemanticCache(),
+                    metadata.triggeredAgents()
             );
         } catch (RuntimeException ex) {
             log.warn("Falling back to deterministic chat handling because the memory-backed chat client failed.", ex);
@@ -112,7 +113,8 @@ public class StockAnalysisChatService {
                 conversationId,
                 response,
                 memoryRepository.getLastRetrievedMemories(),
-                metadata.fromSemanticCache()
+                metadata.fromSemanticCache(),
+                metadata.triggeredAgents()
         );
     }
 
@@ -120,7 +122,8 @@ public class StockAnalysisChatService {
             String conversationId,
             String response,
             List<String> retrievedMemories,
-            boolean fromSemanticCache
+            boolean fromSemanticCache,
+            List<String> triggeredAgents
     ) {
     }
 }

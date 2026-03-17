@@ -1,6 +1,7 @@
 package com.redis.stockanalysisagent.chat;
 
 import com.redis.stockanalysisagent.agent.AgentOrchestrationService;
+import com.redis.stockanalysisagent.agent.AgentType;
 import com.redis.stockanalysisagent.agent.coordinatoragent.CoordinatorAgent;
 import com.redis.stockanalysisagent.agent.coordinatoragent.RoutingDecision;
 import com.redis.stockanalysisagent.api.AnalysisRequest;
@@ -10,10 +11,12 @@ import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.ai.tool.annotation.ToolParam;
 import org.springframework.stereotype.Component;
 
+import java.util.List;
+
 @Component
 public class StockAnalysisChatTools {
 
-    private static final ToolResultMetadata NOT_FROM_CACHE = new ToolResultMetadata(false);
+    private static final ToolResultMetadata NOT_FROM_CACHE = new ToolResultMetadata(false, List.of());
 
     private final CoordinatorAgent coordinatorAgent;
     private final AgentOrchestrationService agentOrchestrationService;
@@ -39,7 +42,7 @@ public class StockAnalysisChatTools {
 
         java.util.Optional<String> cachedResponse = semanticAnalysisCache.findAnswer(request);
         if (cachedResponse.isPresent()) {
-            invocationMetadata.set(new ToolResultMetadata(true));
+            invocationMetadata.set(new ToolResultMetadata(true, List.of()));
             return cachedResponse.get();
         }
 
@@ -56,6 +59,7 @@ public class StockAnalysisChatTools {
         AnalysisRequest analysisRequest = coordinatorAgent.toAnalysisRequest(routingDecision);
         AnalysisResponse response = agentOrchestrationService.processRequest(analysisRequest, routingDecision);
         String renderedResponse = renderAnalysis(response);
+        invocationMetadata.set(new ToolResultMetadata(false, extractTriggeredAgents(response)));
         if (response.limitations().isEmpty()) {
             semanticAnalysisCache.store(request, renderedResponse);
         }
@@ -93,8 +97,19 @@ public class StockAnalysisChatTools {
                 .formatted(response.answer(), String.join(" ", response.limitations()));
     }
 
+    private List<String> extractTriggeredAgents(AnalysisResponse response) {
+        if (response.executionPlan() == null || response.executionPlan().selectedAgents() == null) {
+            return List.of();
+        }
+
+        return response.executionPlan().selectedAgents().stream()
+                .map(AgentType::name)
+                .toList();
+    }
+
     public record ToolResultMetadata(
-            boolean fromSemanticCache
+            boolean fromSemanticCache,
+            List<String> triggeredAgents
     ) {
     }
 }

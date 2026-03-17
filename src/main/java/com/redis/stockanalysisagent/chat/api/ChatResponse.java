@@ -9,6 +9,7 @@ public record ChatResponse(
         String response,
         List<String> retrievedMemories,
         boolean fromSemanticCache,
+        List<String> triggeredAgents,
         long responseTimeMs
 ) {
 }
