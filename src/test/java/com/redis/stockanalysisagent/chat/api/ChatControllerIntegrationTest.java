@@ -48,7 +48,7 @@ class ChatControllerIntegrationTest {
                         "Apple is trading at $200.00.",
                         List.of("The user asked about Apple earlier."),
                         true,
-                        List.of(new ChatExecutionStep("MARKET_DATA", 320))
+                        List.of(new ChatExecutionStep("MARKET_DATA", 320, "Processed the latest quote."))
                 ));
 
         ChatResponse response = client().post()
@@ -69,6 +69,7 @@ class ChatControllerIntegrationTest {
                 .satisfies(step -> {
                     assertThat(step.agentType()).isEqualTo("MARKET_DATA");
                     assertThat(step.durationMs()).isEqualTo(320);
+                    assertThat(step.summary()).isEqualTo("Processed the latest quote.");
                 });
         assertThat(response.responseTimeMs()).isGreaterThanOrEqualTo(0);
     }

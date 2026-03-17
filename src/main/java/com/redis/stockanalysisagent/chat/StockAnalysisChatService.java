@@ -1,95 +1,71 @@
 package com.redis.stockanalysisagent.chat;
 
 import com.redis.stockanalysisagent.memory.AmsChatMemoryRepository;
-import com.redis.stockanalysisagent.memory.LongTermMemoryAdvisor;
+import com.redis.stockanalysisagent.memory.service.AgentMemoryService;
+import com.redis.agentmemory.models.longtermemory.MemoryRecordResult;
+import com.redis.agentmemory.models.longtermemory.MemoryRecordResults;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.ai.chat.client.ChatClient;
-import org.springframework.ai.chat.client.advisor.MessageChatMemoryAdvisor;
 import org.springframework.ai.chat.memory.ChatMemory;
-import org.springframework.ai.chat.model.ChatModel;
+import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
-import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Service
 public class StockAnalysisChatService {
 
     private static final Logger log = LoggerFactory.getLogger(StockAnalysisChatService.class);
-
-    private static final String SYSTEM_PROMPT = """
-            You are a conversational stock-analysis assistant backed by a multi-agent analysis system.
-
-            RULES
-            - Use the available stock-analysis tool for questions about stocks, companies, prices, fundamentals, news, technicals, or combined investment analysis.
-            - For an in-scope stock-analysis user turn, make at most one stock-analysis tool call and pass the full request through intact.
-            - Do not split one user request into separate fundamentals, news, or technical tool calls. Let the stock-analysis tool coordinate the needed sub-agents.
-            - Use conversation memory to resolve follow-up references like "it", "the same company", or "what about technicals?".
-            - If the tool returns a clarification question, ask it directly and briefly.
-            - If the tool returns an analysis, present it clearly and conversationally without inventing extra facts.
-            - If the user asks something outside stock analysis, answer briefly that your scope is stock analysis.
-            - Never invent market data, financials, headlines, or technical indicators.
-            """;
+    private static final int MAX_LONG_TERM_MEMORIES = 5;
+    private static final int MAX_RECENT_MESSAGES = 6;
 
     private final ChatMemory chatMemory;
     private final AmsChatMemoryRepository memoryRepository;
+    private final AgentMemoryService agentMemoryService;
     private final StockAnalysisChatTools stockAnalysisChatTools;
-    private final ChatClient chatClient;
 
     public StockAnalysisChatService(
             ChatMemory chatMemory,
             AmsChatMemoryRepository memoryRepository,
-            LongTermMemoryAdvisor longTermMemoryAdvisor,
-            StockAnalysisChatTools stockAnalysisChatTools,
-            Optional<ChatModel> chatModel
+            AgentMemoryService agentMemoryService,
+            StockAnalysisChatTools stockAnalysisChatTools
     ) {
         this.chatMemory = chatMemory;
         this.memoryRepository = memoryRepository;
+        this.agentMemoryService = agentMemoryService;
         this.stockAnalysisChatTools = stockAnalysisChatTools;
-
-        if (chatModel.isEmpty()) {
-            this.chatClient = null;
-            return;
-        }
-
-        this.chatClient = ChatClient.builder(chatModel.orElseThrow())
-                .defaultAdvisors(MessageChatMemoryAdvisor.builder(chatMemory).build())
-                .defaultAdvisors(longTermMemoryAdvisor)
-                .defaultTools(stockAnalysisChatTools)
-                .defaultSystem(SYSTEM_PROMPT)
-                .build();
     }
 
     public ChatTurn chat(String userId, String sessionId, String message) {
         String conversationId = AmsChatMemoryRepository.createConversationId(userId, sessionId);
+        String normalizedMessage = message == null ? "" : message.trim();
+
+        List<String> retrievedMemories = searchLongTermMemories(normalizedMessage, userId);
+        memoryRepository.setLastRetrievedMemories(retrievedMemories);
+
+        String requestForCoordinator = buildRequestForCoordinator(
+                conversationId,
+                normalizedMessage,
+                recentConversationContext(conversationId),
+                retrievedMemories
+        );
+
         stockAnalysisChatTools.resetInvocationMetadata();
+        String response = stockAnalysisChatTools.analyzeStockRequest(requestForCoordinator);
+        StockAnalysisChatTools.ToolResultMetadata metadata = stockAnalysisChatTools.consumeInvocationMetadata();
 
-        if (chatClient == null) {
-            return fallbackTurn(conversationId, message);
-        }
+        saveTurn(conversationId, normalizedMessage, response);
 
-        try {
-            String response = chatClient.prompt()
-                    .user(message)
-                    .advisors(spec -> spec.param(ChatMemory.CONVERSATION_ID, conversationId))
-                    .call()
-                    .content();
-            StockAnalysisChatTools.ToolResultMetadata metadata = stockAnalysisChatTools.consumeInvocationMetadata();
-
-            return new ChatTurn(
-                    conversationId,
-                    response,
-                    memoryRepository.getLastRetrievedMemories(),
-                    metadata.fromSemanticCache(),
-                    metadata.triggeredAgents()
-            );
-        } catch (RuntimeException ex) {
-            log.warn("Falling back to deterministic chat handling because the memory-backed chat client failed.", ex);
-            return fallbackTurn(conversationId, message);
-        }
+        return new ChatTurn(
+                conversationId,
+                response,
+                retrievedMemories,
+                metadata.fromSemanticCache(),
+                metadata.triggeredAgents()
+        );
     }
 
     public void clearSession(String userId, String sessionId) {
@@ -100,24 +76,110 @@ public class StockAnalysisChatService {
         }
     }
 
-    private ChatTurn fallbackTurn(String conversationId, String message) {
-        stockAnalysisChatTools.resetInvocationMetadata();
-        String response = stockAnalysisChatTools.analyzeStockRequest(message);
-        StockAnalysisChatTools.ToolResultMetadata metadata = stockAnalysisChatTools.consumeInvocationMetadata();
-
+    private void saveTurn(String conversationId, String message, String response) {
         try {
             chatMemory.add(conversationId, new UserMessage(message));
             chatMemory.add(conversationId, new AssistantMessage(response));
-        } catch (RuntimeException ignored) {
+        } catch (RuntimeException ex) {
+            log.warn("Skipping working-memory save because chat persistence failed.", ex);
+        }
+    }
+
+    private List<String> recentConversationContext(String conversationId) {
+        try {
+            List<Message> messages = chatMemory.get(conversationId);
+            if (messages == null || messages.isEmpty()) {
+                return List.of();
+            }
+
+            List<String> formattedMessages = messages.stream()
+                    .filter(message -> message.getMessageType() == org.springframework.ai.chat.messages.MessageType.USER
+                            || message.getMessageType() == org.springframework.ai.chat.messages.MessageType.ASSISTANT)
+                    .map(this::formatConversationMessage)
+                    .filter(line -> line != null && !line.isBlank())
+                    .toList();
+
+            if (formattedMessages.size() <= MAX_RECENT_MESSAGES) {
+                return formattedMessages;
+            }
+
+            return formattedMessages.subList(formattedMessages.size() - MAX_RECENT_MESSAGES, formattedMessages.size());
+        } catch (RuntimeException ex) {
+            log.warn("Skipping recent conversation lookup because chat memory retrieval failed.", ex);
+            return List.of();
+        }
+    }
+
+    private List<String> searchLongTermMemories(String query, String userId) {
+        if (query == null || query.isBlank() || userId == null || userId.isBlank()) {
+            return List.of();
         }
 
-        return new ChatTurn(
-                conversationId,
-                response,
-                memoryRepository.getLastRetrievedMemories(),
-                metadata.fromSemanticCache(),
-                metadata.triggeredAgents()
-        );
+        try {
+            MemoryRecordResults response = agentMemoryService.searchLongTermMemory(query, userId, MAX_LONG_TERM_MEMORIES);
+            if (response == null || response.getMemories() == null) {
+                return List.of();
+            }
+
+            return response.getMemories().stream()
+                    .map(MemoryRecordResult::getText)
+                    .filter(text -> text != null && !text.isBlank())
+                    .toList();
+        } catch (RuntimeException ex) {
+            log.warn("Skipping long-term memory lookup because retrieval failed.", ex);
+            return List.of();
+        }
+    }
+
+    private String buildRequestForCoordinator(
+            String conversationId,
+            String message,
+            List<String> recentConversation,
+            List<String> retrievedMemories
+    ) {
+        if (recentConversation.isEmpty() && retrievedMemories.isEmpty()) {
+            return message;
+        }
+
+        StringBuilder request = new StringBuilder();
+        request.append("Conversation ID: ").append(conversationId).append(System.lineSeparator());
+
+        if (!recentConversation.isEmpty()) {
+            request.append("Recent conversation context:")
+                    .append(System.lineSeparator())
+                    .append(recentConversation.stream().collect(Collectors.joining(System.lineSeparator())))
+                    .append(System.lineSeparator())
+                    .append(System.lineSeparator());
+        }
+
+        if (!retrievedMemories.isEmpty()) {
+            request.append("Relevant long-term memories:")
+                    .append(System.lineSeparator())
+                    .append(retrievedMemories.stream()
+                            .map(memory -> "- " + memory)
+                            .collect(Collectors.joining(System.lineSeparator())))
+                    .append(System.lineSeparator())
+                    .append(System.lineSeparator());
+        }
+
+        request.append("Current user request:")
+                .append(System.lineSeparator())
+                .append(message);
+
+        return request.toString();
+    }
+
+    private String formatConversationMessage(Message message) {
+        String text = message.getText();
+        if (text == null || text.isBlank()) {
+            return null;
+        }
+
+        return switch (message.getMessageType()) {
+            case USER -> "User: " + text;
+            case ASSISTANT -> "Assistant: " + text;
+            default -> null;
+        };
     }
 
     public record ChatTurn(

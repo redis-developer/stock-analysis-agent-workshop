@@ -515,18 +515,77 @@ body::before {
 }
 
 .message__disclosure-item {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: var(--spacing-3);
+    display: grid;
+    gap: var(--spacing-2);
 }
 
 .message__disclosure-item + .message__disclosure-item {
     margin-top: 0.55rem;
 }
 
+.message__disclosure-item-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing-3);
+}
+
 .message__disclosure-item-label {
     min-width: 0;
+}
+
+.message__subdisclosure {
+    padding: 0.55rem 0.7rem;
+    border-radius: var(--radius-md);
+    background: rgba(10, 21, 27, 0.38);
+    border: 1px solid rgba(71, 85, 105, 0.3);
+}
+
+.message__subdisclosure-summary {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-2);
+    cursor: pointer;
+    list-style: none;
+    color: var(--color-text-secondary);
+    font-size: 0.7rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.message__subdisclosure-summary::-webkit-details-marker {
+    display: none;
+}
+
+.message__subdisclosure-summary::after {
+    content: "";
+    width: 0.45rem;
+    height: 0.45rem;
+    border-right: 2px solid var(--color-text-muted);
+    border-bottom: 2px solid var(--color-text-muted);
+    transform: rotate(45deg);
+    transition: transform var(--transition-base);
+    margin-left: auto;
+    flex: 0 0 auto;
+}
+
+.message__subdisclosure[open] .message__subdisclosure-summary::after {
+    transform: rotate(225deg);
+}
+
+.message__subdisclosure-body {
+    margin-top: var(--spacing-2);
+    color: var(--color-text-secondary);
+    font-size: 0.92rem;
+    line-height: 1.55;
+}
+
+.message__subdisclosure-body p {
+    margin: 0;
+}
+
+.message__subdisclosure-body > * + * {
+    margin-top: var(--spacing-2);
 }
 
 .message__disclosure-empty {
@@ -621,11 +680,7 @@ body::before {
     gap: var(--spacing-4);
     width: min(100%, 64rem);
     margin: 0 auto;
-    padding: var(--spacing-4);
-    border: 1px solid var(--color-border);
-    border-radius: 1.1rem;
-    background: rgba(13, 26, 34, 0.92);
-    box-shadow: var(--shadow-panel);
+    padding: 0;
 }
 
 .composer textarea {
@@ -635,6 +690,7 @@ body::before {
     resize: none;
     padding: 0.95rem 1rem;
     line-height: 1.55;
+    box-shadow: 0 20px 48px rgba(0, 0, 0, 0.24);
 }
 
 .composer-footer {
@@ -643,6 +699,7 @@ body::before {
     align-items: center;
     gap: var(--spacing-3);
     flex-wrap: wrap;
+    padding: 0 1rem;
 }
 
 .composer-meta {

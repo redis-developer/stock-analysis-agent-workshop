@@ -330,17 +330,40 @@
                 const item = document.createElement("li");
                 item.className = "message__disclosure-item";
 
+                const row = document.createElement("div");
+                row.className = "message__disclosure-item-row";
+
                 const label = document.createElement("span");
                 label.className = "message__disclosure-item-label";
                 label.textContent = formatAgentLabel(resolveAgentName(agent));
-                item.appendChild(label);
+                row.appendChild(label);
 
                 const durationMs = resolveAgentDuration(agent);
                 if (durationMs != null) {
                     const timingBadge = document.createElement("span");
                     timingBadge.className = "badge badge--timing badge--timing-inline";
                     timingBadge.textContent = formatDuration(durationMs);
-                    item.appendChild(timingBadge);
+                    row.appendChild(timingBadge);
+                }
+
+                item.appendChild(row);
+
+                const summary = resolveAgentSummary(agent);
+                if (summary) {
+                    const details = document.createElement("details");
+                    details.className = "message__subdisclosure";
+
+                    const summaryToggle = document.createElement("summary");
+                    summaryToggle.className = "message__subdisclosure-summary";
+                    summaryToggle.textContent = "Processed";
+                    details.appendChild(summaryToggle);
+
+                    const body = document.createElement("div");
+                    body.className = "message__subdisclosure-body";
+                    renderMarkdownContent(body, summary);
+                    details.appendChild(body);
+
+                    item.appendChild(details);
                 }
 
                 return item;
@@ -704,6 +727,14 @@
     function resolveAgentDuration(agent) {
         if (agent && typeof agent === "object" && Number.isFinite(agent.durationMs)) {
             return agent.durationMs;
+        }
+
+        return null;
+    }
+
+    function resolveAgentSummary(agent) {
+        if (agent && typeof agent === "object" && typeof agent.summary === "string" && agent.summary.trim()) {
+            return agent.summary.trim();
         }
 
         return null;

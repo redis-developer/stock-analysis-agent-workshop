@@ -102,9 +102,16 @@ class StockAnalysisChatToolsTest {
                 .extracting(ChatExecutionStep::agentType)
                 .containsExactly("COORDINATOR", "MARKET_DATA");
         assertThat(metadata.triggeredAgents())
+                .filteredOn(step -> "COORDINATOR".equals(step.agentType()))
+                .singleElement()
+                .satisfies(step -> assertThat(step.summary()).contains("Resolved AAPL"));
+        assertThat(metadata.triggeredAgents())
                 .filteredOn(step -> "MARKET_DATA".equals(step.agentType()))
                 .singleElement()
-                .satisfies(step -> assertThat(step.durationMs()).isEqualTo(125));
+                .satisfies(step -> {
+                    assertThat(step.durationMs()).isEqualTo(125);
+                    assertThat(step.summary()).isEqualTo("Market data completed.");
+                });
         verify(semanticAnalysisCache).store("What is Apple's current price?", "Apple is trading at $200.00.");
     }
 
@@ -182,8 +189,16 @@ class StockAnalysisChatToolsTest {
                 .extracting(ChatExecutionStep::agentType)
                 .containsExactly("COORDINATOR", "FUNDAMENTALS", "TECHNICAL_ANALYSIS");
         assertThat(metadata.triggeredAgents())
+                .filteredOn(step -> "COORDINATOR".equals(step.agentType()))
+                .singleElement()
+                .satisfies(step -> assertThat(step.summary()).contains("Resolved TSLA"));
+        assertThat(metadata.triggeredAgents())
                 .filteredOn(step -> !"COORDINATOR".equals(step.agentType()))
                 .extracting(ChatExecutionStep::durationMs)
                 .containsExactly(310L, 470L);
+        assertThat(metadata.triggeredAgents())
+                .filteredOn(step -> "FUNDAMENTALS".equals(step.agentType()))
+                .singleElement()
+                .satisfies(step -> assertThat(step.summary()).isEqualTo("Fundamentals completed."));
     }
 }

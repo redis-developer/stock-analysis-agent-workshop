@@ -70,6 +70,6 @@ agent-memory:
 
 app:
   cli:
-    enabled: true
+    enabled: false
   chat:
     user-id: ${CHAT_USER_ID:workshop-user}

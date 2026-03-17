@@ -174,7 +174,15 @@ public class AgentOrchestrationService {
         try {
             MarketDataResult marketDataResult = marketDataAgent.execute(request.ticker(), request.question());
             return AgentExecutionOutcome.completed(
-                    completedExecution(AgentType.MARKET_DATA, elapsedDurationMs(startedAt)),
+                    completedExecution(
+                            AgentType.MARKET_DATA,
+                            elapsedDurationMs(startedAt),
+                            summarizeOutcome(
+                                    marketDataResult.getMessage(),
+                                    "Processed the latest quote, previous close, and recent price movement for %s."
+                                            .formatted(request.ticker().toUpperCase())
+                            )
+                    ),
                     marketDataResult.getFinalResponse(),
                     marketDataResult.getMessage()
             );
@@ -191,7 +199,14 @@ public class AgentOrchestrationService {
                     : fundamentalsAgent.execute(request.ticker(), request.question());
 
             return AgentExecutionOutcome.completed(
-                    completedExecution(AgentType.FUNDAMENTALS, elapsedDurationMs(startedAt)),
+                    completedExecution(
+                            AgentType.FUNDAMENTALS,
+                            elapsedDurationMs(startedAt),
+                            summarizeOutcome(
+                                    fundamentalsResult.getMessage(),
+                                    "Processed the fundamentals snapshot, including revenue, margins, debt, cash, and valuation context."
+                            )
+                    ),
                     fundamentalsResult.getFinalResponse(),
                     fundamentalsResult.getMessage()
             );
@@ -205,7 +220,15 @@ public class AgentOrchestrationService {
         try {
             NewsResult newsResult = newsAgent.execute(request.ticker(), request.question());
             return AgentExecutionOutcome.completed(
-                    completedExecution(AgentType.NEWS, elapsedDurationMs(startedAt)),
+                    completedExecution(
+                            AgentType.NEWS,
+                            elapsedDurationMs(startedAt),
+                            summarizeOutcome(
+                                    newsResult.getMessage(),
+                                    "Processed recent SEC filings and relevant web news for %s."
+                                            .formatted(request.ticker().toUpperCase())
+                            )
+                    ),
                     newsResult.getFinalResponse(),
                     newsResult.getMessage()
             );
@@ -219,7 +242,15 @@ public class AgentOrchestrationService {
         try {
             TechnicalAnalysisResult technicalAnalysisResult = technicalAnalysisAgent.execute(request.ticker(), request.question());
             return AgentExecutionOutcome.completed(
-                    completedExecution(AgentType.TECHNICAL_ANALYSIS, elapsedDurationMs(startedAt)),
+                    completedExecution(
+                            AgentType.TECHNICAL_ANALYSIS,
+                            elapsedDurationMs(startedAt),
+                            summarizeOutcome(
+                                    technicalAnalysisResult.getMessage(),
+                                    "Processed the latest close, moving averages, RSI, and trend signals for %s."
+                                            .formatted(request.ticker().toUpperCase())
+                            )
+                    ),
                     technicalAnalysisResult.getFinalResponse(),
                     technicalAnalysisResult.getMessage()
             );
@@ -280,7 +311,11 @@ public class AgentOrchestrationService {
                     state.agentExecutions
             );
 
-            state.agentExecutions.add(completedExecution(AgentType.SYNTHESIS, elapsedDurationMs(synthesisStartedAt)));
+            state.agentExecutions.add(completedExecution(
+                    AgentType.SYNTHESIS,
+                    elapsedDurationMs(synthesisStartedAt),
+                    synthesisSummary(state)
+            ));
 
             return synthesizedAnswer;
         }
@@ -315,11 +350,11 @@ public class AgentOrchestrationService {
         };
     }
 
-    private AgentExecution completedExecution(AgentType agentType, long durationMs) {
+    private AgentExecution completedExecution(AgentType agentType, long durationMs, String summary) {
         return new AgentExecution(
                 agentType,
                 AgentExecutionStatus.COMPLETED,
-                "%s completed.".formatted(agentLabel(agentType)),
+                normalizeSummary(summary, "%s completed.".formatted(agentLabel(agentType))),
                 durationMs
         );
     }
@@ -335,6 +370,35 @@ public class AgentOrchestrationService {
 
     private long elapsedDurationMs(long startedAt) {
         return Math.max(0, (System.nanoTime() - startedAt) / 1_000_000);
+    }
+
+    private String summarizeOutcome(String message, String fallback) {
+        return normalizeSummary(message, fallback);
+    }
+
+    private String synthesisSummary(ExecutionState state) {
+        List<String> contributingAgents = state.agentExecutions.stream()
+                .map(AgentExecution::agentType)
+                .filter(agentType -> agentType != AgentType.SYNTHESIS)
+                .distinct()
+                .map(this::agentLabel)
+                .toList();
+
+        if (contributingAgents.isEmpty()) {
+            return "Combined the available specialist outputs into the final response.";
+        }
+
+        return "Combined outputs from %s into the final response."
+                .formatted(String.join(", ", contributingAgents));
+    }
+
+    private String normalizeSummary(String summary, String fallback) {
+        String normalized = summary == null ? "" : summary.replace('\n', ' ').replaceAll("\\s+", " ").trim();
+        if (!normalized.isBlank()) {
+            return normalized;
+        }
+
+        return fallback;
     }
 
     private Throwable unwrapThrowable(Throwable throwable) {

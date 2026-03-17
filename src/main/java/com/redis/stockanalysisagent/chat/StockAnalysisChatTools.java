@@ -2,6 +2,7 @@ package com.redis.stockanalysisagent.chat;
 
 import com.redis.stockanalysisagent.agent.AgentExecutionStatus;
 import com.redis.stockanalysisagent.agent.AgentOrchestrationService;
+import com.redis.stockanalysisagent.agent.AgentType;
 import com.redis.stockanalysisagent.agent.coordinatoragent.CoordinatorAgent;
 import com.redis.stockanalysisagent.agent.coordinatoragent.RoutingDecision;
 import com.redis.stockanalysisagent.api.AnalysisRequest;
@@ -50,7 +51,11 @@ public class StockAnalysisChatTools {
 
         long coordinatorStartedAt = System.nanoTime();
         RoutingDecision routingDecision = coordinatorAgent.execute(request);
-        metadata.recordInvocation(false, List.of(new ChatExecutionStep(COORDINATOR, elapsedDurationMs(coordinatorStartedAt))));
+        metadata.recordInvocation(false, List.of(new ChatExecutionStep(
+                COORDINATOR,
+                elapsedDurationMs(coordinatorStartedAt),
+                coordinatorSummary(routingDecision)
+        )));
 
         if (routingDecision.getFinishReason() == RoutingDecision.FinishReason.NEEDS_MORE_INPUT) {
             return routingDecision.getNextPrompt();
@@ -110,7 +115,8 @@ public class StockAnalysisChatTools {
                 .filter(agentExecution -> agentExecution.status() != AgentExecutionStatus.SKIPPED)
                 .map(agentExecution -> new ChatExecutionStep(
                         agentExecution.agentType().name(),
-                        agentExecution.durationMs()
+                        agentExecution.durationMs(),
+                        agentExecution.summary()
                 ))
                 .toList();
     }
@@ -123,6 +129,63 @@ public class StockAnalysisChatTools {
             boolean fromSemanticCache,
             List<ChatExecutionStep> triggeredAgents
     ) {
+    }
+
+    private String coordinatorSummary(RoutingDecision routingDecision) {
+        return switch (routingDecision.getFinishReason()) {
+            case COMPLETED -> {
+                List<String> routedAgents = routingDecision.getSelectedAgents() == null
+                        ? List.of()
+                        : routingDecision.getSelectedAgents().stream()
+                        .map(this::formatAgentLabel)
+                        .toList();
+                String routedAgentSummary = routedAgents.isEmpty()
+                        ? "no specialized agents"
+                        : String.join(", ", routedAgents);
+                if (routingDecision.isRequiresSynthesis()) {
+                    routedAgentSummary = routedAgentSummary + ", Synthesis";
+                }
+
+                String ticker = normalizeText(routingDecision.getResolvedTicker());
+                String reasoning = normalizeText(routingDecision.getReasoning());
+                String baseSummary = ticker == null
+                        ? "Routed the request to %s.".formatted(routedAgentSummary)
+                        : "Resolved %s and routed the request to %s.".formatted(ticker.toUpperCase(), routedAgentSummary);
+
+                yield reasoning == null ? baseSummary : "%s Reasoning: %s".formatted(baseSummary, reasoning);
+            }
+            case NEEDS_MORE_INPUT -> {
+                String nextPrompt = normalizeText(routingDecision.getNextPrompt());
+                yield nextPrompt == null
+                        ? "Requested a clarification before routing the analysis."
+                        : "Requested clarification before routing: %s".formatted(nextPrompt);
+            }
+            case OUT_OF_SCOPE, CANNOT_PROCEED -> {
+                String finalResponse = normalizeText(routingDecision.getFinalResponse());
+                yield finalResponse == null
+                        ? "Could not route the request to the stock-analysis agents."
+                        : finalResponse;
+            }
+        };
+    }
+
+    private String formatAgentLabel(AgentType agentType) {
+        return switch (agentType) {
+            case MARKET_DATA -> "Market Data";
+            case FUNDAMENTALS -> "Fundamentals";
+            case NEWS -> "News";
+            case TECHNICAL_ANALYSIS -> "Technical Analysis";
+            case SYNTHESIS -> "Synthesis";
+        };
+    }
+
+    private String normalizeText(String value) {
+        if (value == null) {
+            return null;
+        }
+
+        String normalized = value.replace('\n', ' ').replaceAll("\\s+", " ").trim();
+        return normalized.isBlank() ? null : normalized;
     }
 
     private static final class ToolResultAccumulator {
@@ -154,8 +217,25 @@ public class StockAnalysisChatTools {
         private static ChatExecutionStep mergeAgentExecution(ChatExecutionStep existing, ChatExecutionStep incoming) {
             return new ChatExecutionStep(
                     incoming.agentType(),
-                    existing.durationMs() + incoming.durationMs()
+                    existing.durationMs() + incoming.durationMs(),
+                    mergeSummaries(existing.summary(), incoming.summary())
             );
+        }
+
+        private static String mergeSummaries(String existing, String incoming) {
+            if (incoming == null || incoming.isBlank()) {
+                return existing;
+            }
+
+            if (existing == null || existing.isBlank()) {
+                return incoming;
+            }
+
+            if (existing.equals(incoming)) {
+                return existing;
+            }
+
+            return existing + "\n\n" + incoming;
         }
     }
 }

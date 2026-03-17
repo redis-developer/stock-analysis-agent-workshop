@@ -37,11 +37,4 @@ public class AgentMemoryConfig {
                 .build();
     }
 
-    @Bean
-    public LongTermMemoryAdvisor longTermMemoryAdvisor(
-            AgentMemoryService agentMemoryService,
-            AmsChatMemoryRepository memoryRepository
-    ) {
-        return new LongTermMemoryAdvisor(agentMemoryService, memoryRepository, 5);
-    }
 }
