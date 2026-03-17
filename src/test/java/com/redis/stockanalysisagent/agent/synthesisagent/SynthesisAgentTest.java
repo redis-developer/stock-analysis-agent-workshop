@@ -44,10 +44,10 @@ class SynthesisAgentTest {
                 newsSnapshot(),
                 technicalSnapshot(),
                 List.of(
-                        new AgentExecution(AgentType.MARKET_DATA, AgentExecutionStatus.COMPLETED, "ok"),
-                        new AgentExecution(AgentType.FUNDAMENTALS, AgentExecutionStatus.COMPLETED, "ok"),
-                        new AgentExecution(AgentType.NEWS, AgentExecutionStatus.COMPLETED, "ok"),
-                        new AgentExecution(AgentType.TECHNICAL_ANALYSIS, AgentExecutionStatus.COMPLETED, "ok")
+                        new AgentExecution(AgentType.MARKET_DATA, AgentExecutionStatus.COMPLETED, "ok", 100),
+                        new AgentExecution(AgentType.FUNDAMENTALS, AgentExecutionStatus.COMPLETED, "ok", 120),
+                        new AgentExecution(AgentType.NEWS, AgentExecutionStatus.COMPLETED, "ok", 140),
+                        new AgentExecution(AgentType.TECHNICAL_ANALYSIS, AgentExecutionStatus.COMPLETED, "ok", 160)
                 )
         );
 
@@ -73,8 +73,8 @@ class SynthesisAgentTest {
                 newsSnapshot(),
                 null,
                 List.of(
-                        new AgentExecution(AgentType.MARKET_DATA, AgentExecutionStatus.COMPLETED, "ok"),
-                        new AgentExecution(AgentType.NEWS, AgentExecutionStatus.NOT_IMPLEMENTED, "missing")
+                        new AgentExecution(AgentType.MARKET_DATA, AgentExecutionStatus.COMPLETED, "ok", 100),
+                        new AgentExecution(AgentType.NEWS, AgentExecutionStatus.NOT_IMPLEMENTED, "missing", 0)
                 )
         );
 

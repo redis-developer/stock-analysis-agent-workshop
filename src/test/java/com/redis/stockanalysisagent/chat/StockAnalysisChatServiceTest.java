@@ -1,5 +1,8 @@
 package com.redis.stockanalysisagent.chat;
 
+import com.redis.stockanalysisagent.agent.AgentExecution;
+import com.redis.stockanalysisagent.agent.AgentExecutionStatus;
+import com.redis.stockanalysisagent.agent.AgentType;
 import com.redis.stockanalysisagent.memory.AmsChatMemoryRepository;
 import com.redis.stockanalysisagent.memory.LongTermMemoryAdvisor;
 import org.junit.jupiter.api.Test;
@@ -28,7 +31,10 @@ class StockAnalysisChatServiceTest {
         when(chatTools.analyzeStockRequest("What is Apple's current price?"))
                 .thenReturn("Apple is trading at $200.00.");
         when(chatTools.consumeInvocationMetadata())
-                .thenReturn(new StockAnalysisChatTools.ToolResultMetadata(true, List.of("MARKET_DATA")));
+                .thenReturn(new StockAnalysisChatTools.ToolResultMetadata(
+                        true,
+                        List.of(new AgentExecution(AgentType.MARKET_DATA, AgentExecutionStatus.COMPLETED, "ok", 245))
+                ));
         when(memoryRepository.getLastRetrievedMemories())
                 .thenReturn(List.of("The user asked about Apple earlier."));
 
@@ -50,7 +56,12 @@ class StockAnalysisChatServiceTest {
         assertThat(turn.response()).isEqualTo("Apple is trading at $200.00.");
         assertThat(turn.retrievedMemories()).containsExactly("The user asked about Apple earlier.");
         assertThat(turn.fromSemanticCache()).isTrue();
-        assertThat(turn.triggeredAgents()).containsExactly("MARKET_DATA");
+        assertThat(turn.triggeredAgents())
+                .singleElement()
+                .satisfies(agentExecution -> {
+                    assertThat(agentExecution.agentType()).isEqualTo(AgentType.MARKET_DATA);
+                    assertThat(agentExecution.durationMs()).isEqualTo(245);
+                });
         verify(chatMemory).add(
                 eq("test-user:test-session"),
                 argThat((Message message) -> "What is Apple's current price?".equals(message.getText()))

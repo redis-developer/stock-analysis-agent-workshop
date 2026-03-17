@@ -1,5 +1,6 @@
 package com.redis.stockanalysisagent.chat;
 
+import com.redis.stockanalysisagent.agent.AgentExecution;
 import com.redis.stockanalysisagent.memory.AmsChatMemoryRepository;
 import com.redis.stockanalysisagent.memory.LongTermMemoryAdvisor;
 import org.slf4j.Logger;
@@ -123,7 +124,7 @@ public class StockAnalysisChatService {
             String response,
             List<String> retrievedMemories,
             boolean fromSemanticCache,
-            List<String> triggeredAgents
+            List<AgentExecution> triggeredAgents
     ) {
     }
 }

@@ -170,65 +170,73 @@ public class AgentOrchestrationService {
     }
 
     private AgentExecutionOutcome executeMarketData(AnalysisRequest request) {
+        long startedAt = System.nanoTime();
         try {
             MarketDataResult marketDataResult = marketDataAgent.execute(request.ticker(), request.question());
             return AgentExecutionOutcome.completed(
-                    completedExecution(AgentType.MARKET_DATA),
+                    completedExecution(AgentType.MARKET_DATA, elapsedDurationMs(startedAt)),
                     marketDataResult.getFinalResponse(),
                     marketDataResult.getMessage()
             );
         } catch (RuntimeException ex) {
-            return failedOutcome(AgentType.MARKET_DATA, ex);
+            return failedOutcome(AgentType.MARKET_DATA, ex, elapsedDurationMs(startedAt));
         }
     }
 
     private AgentExecutionOutcome executeFundamentals(AnalysisRequest request, MarketSnapshot marketSnapshot) {
+        long startedAt = System.nanoTime();
         try {
             FundamentalsResult fundamentalsResult = marketSnapshot != null
                     ? fundamentalsAgent.execute(request.ticker(), request.question(), marketSnapshot)
                     : fundamentalsAgent.execute(request.ticker(), request.question());
 
             return AgentExecutionOutcome.completed(
-                    completedExecution(AgentType.FUNDAMENTALS),
+                    completedExecution(AgentType.FUNDAMENTALS, elapsedDurationMs(startedAt)),
                     fundamentalsResult.getFinalResponse(),
                     fundamentalsResult.getMessage()
             );
         } catch (RuntimeException ex) {
-            return failedOutcome(AgentType.FUNDAMENTALS, ex);
+            return failedOutcome(AgentType.FUNDAMENTALS, ex, elapsedDurationMs(startedAt));
         }
     }
 
     private AgentExecutionOutcome executeNews(AnalysisRequest request) {
+        long startedAt = System.nanoTime();
         try {
             NewsResult newsResult = newsAgent.execute(request.ticker(), request.question());
             return AgentExecutionOutcome.completed(
-                    completedExecution(AgentType.NEWS),
+                    completedExecution(AgentType.NEWS, elapsedDurationMs(startedAt)),
                     newsResult.getFinalResponse(),
                     newsResult.getMessage()
             );
         } catch (RuntimeException ex) {
-            return failedOutcome(AgentType.NEWS, ex);
+            return failedOutcome(AgentType.NEWS, ex, elapsedDurationMs(startedAt));
         }
     }
 
     private AgentExecutionOutcome executeTechnicalAnalysis(AnalysisRequest request) {
+        long startedAt = System.nanoTime();
         try {
             TechnicalAnalysisResult technicalAnalysisResult = technicalAnalysisAgent.execute(request.ticker(), request.question());
             return AgentExecutionOutcome.completed(
-                    completedExecution(AgentType.TECHNICAL_ANALYSIS),
+                    completedExecution(AgentType.TECHNICAL_ANALYSIS, elapsedDurationMs(startedAt)),
                     technicalAnalysisResult.getFinalResponse(),
                     technicalAnalysisResult.getMessage()
             );
         } catch (RuntimeException ex) {
-            return failedOutcome(AgentType.TECHNICAL_ANALYSIS, ex);
+            return failedOutcome(AgentType.TECHNICAL_ANALYSIS, ex, elapsedDurationMs(startedAt));
         }
     }
 
     private AgentExecutionOutcome failedOutcome(AgentType agentType, Throwable throwable) {
+        return failedOutcome(agentType, throwable, 0);
+    }
+
+    private AgentExecutionOutcome failedOutcome(AgentType agentType, Throwable throwable, long durationMs) {
         Throwable normalizedThrowable = unwrapThrowable(throwable);
         String normalizedError = normalizeErrorMessage(normalizedThrowable);
         return AgentExecutionOutcome.failed(
-                failedExecution(agentType, normalizedError),
+                failedExecution(agentType, normalizedError, durationMs),
                 "%s failed: %s".formatted(agentType, normalizedError)
         );
     }
@@ -261,6 +269,7 @@ public class AgentOrchestrationService {
                     AgentType.TECHNICAL_ANALYSIS,
                     TechnicalAnalysisSnapshot.class
             );
+            long synthesisStartedAt = System.nanoTime();
             String synthesizedAnswer = synthesisAgent.synthesize(
                     request,
                     executionPlan,
@@ -272,7 +281,7 @@ public class AgentOrchestrationService {
             );
 
             if (executionPlan.requiresSynthesis()) {
-                state.agentExecutions.add(completedExecution(AgentType.SYNTHESIS));
+                state.agentExecutions.add(completedExecution(AgentType.SYNTHESIS, elapsedDurationMs(synthesisStartedAt)));
             }
 
             return synthesizedAnswer;
@@ -282,7 +291,8 @@ public class AgentOrchestrationService {
             state.agentExecutions.add(new AgentExecution(
                     AgentType.SYNTHESIS,
                     AgentExecutionStatus.SKIPPED,
-                    "Synthesis skipped."
+                    "Synthesis skipped.",
+                    0
             ));
         }
 
@@ -307,12 +317,26 @@ public class AgentOrchestrationService {
         };
     }
 
-    private AgentExecution completedExecution(AgentType agentType) {
-        return new AgentExecution(agentType, AgentExecutionStatus.COMPLETED, "%s completed.".formatted(agentLabel(agentType)));
+    private AgentExecution completedExecution(AgentType agentType, long durationMs) {
+        return new AgentExecution(
+                agentType,
+                AgentExecutionStatus.COMPLETED,
+                "%s completed.".formatted(agentLabel(agentType)),
+                durationMs
+        );
     }
 
-    private AgentExecution failedExecution(AgentType agentType, String error) {
-        return new AgentExecution(agentType, AgentExecutionStatus.FAILED, "%s failed: %s".formatted(agentLabel(agentType), error));
+    private AgentExecution failedExecution(AgentType agentType, String error, long durationMs) {
+        return new AgentExecution(
+                agentType,
+                AgentExecutionStatus.FAILED,
+                "%s failed: %s".formatted(agentLabel(agentType), error),
+                durationMs
+        );
+    }
+
+    private long elapsedDurationMs(long startedAt) {
+        return Math.max(0, (System.nanoTime() - startedAt) / 1_000_000);
     }
 
     private Throwable unwrapThrowable(Throwable throwable) {

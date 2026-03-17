@@ -1,7 +1,7 @@
 package com.redis.stockanalysisagent.chat;
 
 import com.redis.stockanalysisagent.agent.AgentOrchestrationService;
-import com.redis.stockanalysisagent.agent.AgentType;
+import com.redis.stockanalysisagent.agent.AgentExecution;
 import com.redis.stockanalysisagent.agent.coordinatoragent.CoordinatorAgent;
 import com.redis.stockanalysisagent.agent.coordinatoragent.RoutingDecision;
 import com.redis.stockanalysisagent.api.AnalysisRequest;
@@ -97,19 +97,18 @@ public class StockAnalysisChatTools {
                 .formatted(response.answer(), String.join(" ", response.limitations()));
     }
 
-    private List<String> extractTriggeredAgents(AnalysisResponse response) {
-        if (response.executionPlan() == null || response.executionPlan().selectedAgents() == null) {
+    private List<AgentExecution> extractTriggeredAgents(AnalysisResponse response) {
+        if (response.agentExecutions() == null) {
             return List.of();
         }
 
-        return response.executionPlan().selectedAgents().stream()
-                .map(AgentType::name)
+        return response.agentExecutions().stream()
                 .toList();
     }
 
     public record ToolResultMetadata(
             boolean fromSemanticCache,
-            List<String> triggeredAgents
+            List<AgentExecution> triggeredAgents
     ) {
     }
 }

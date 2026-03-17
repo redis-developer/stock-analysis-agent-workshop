@@ -326,11 +326,25 @@
         }
 
         if (message.role === "assistant" && hasTriggeredAgentMetadata) {
-            panels.push(buildDisclosurePanel("Triggered agents", triggeredAgents, function (agentName) {
+            panels.push(buildDisclosurePanel("Triggered agents", triggeredAgents, function (agent) {
                 const item = document.createElement("li");
-                item.textContent = formatAgentLabel(agentName);
+                item.className = "message__disclosure-item";
+
+                const label = document.createElement("span");
+                label.className = "message__disclosure-item-label";
+                label.textContent = formatAgentLabel(resolveAgentName(agent));
+                item.appendChild(label);
+
+                const durationMs = resolveAgentDuration(agent);
+                if (durationMs != null) {
+                    const timingBadge = document.createElement("span");
+                    timingBadge.className = "badge badge--timing badge--timing-inline";
+                    timingBadge.textContent = formatDuration(durationMs);
+                    item.appendChild(timingBadge);
+                }
+
                 return item;
-            }, "No sub-agents triggered."));
+            }, "No sub-agents triggered.", "message__disclosure-list--agents"));
         }
 
         if (panels.length === 0) {
@@ -345,7 +359,7 @@
         return container;
     }
 
-    function buildDisclosurePanel(title, items, renderItem, emptyText) {
+    function buildDisclosurePanel(title, items, renderItem, emptyText, listClassName) {
         const wrapper = document.createElement("details");
         wrapper.className = "message__disclosure";
 
@@ -374,6 +388,9 @@
 
         const list = document.createElement("ul");
         list.className = "message__disclosure-list";
+        if (listClassName) {
+            list.classList.add(listClassName);
+        }
         for (const itemValue of items) {
             list.appendChild(renderItem(itemValue));
         }
@@ -674,6 +691,22 @@
                 return segment ? segment.charAt(0).toUpperCase() + segment.slice(1) : segment;
             })
             .join(" ");
+    }
+
+    function resolveAgentName(agent) {
+        if (agent && typeof agent === "object" && typeof agent.agentType === "string") {
+            return agent.agentType;
+        }
+
+        return agent;
+    }
+
+    function resolveAgentDuration(agent) {
+        if (agent && typeof agent === "object" && Number.isFinite(agent.durationMs)) {
+            return agent.durationMs;
+        }
+
+        return null;
     }
 
     function normalizeUserId(userId) {

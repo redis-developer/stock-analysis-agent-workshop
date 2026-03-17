@@ -69,7 +69,7 @@ class StockAnalysisChatToolsTest {
                 "What is Apple's current price?",
                 OffsetDateTime.parse("2026-03-17T00:00:00Z"),
                 new ExecutionPlan(List.of(AgentType.MARKET_DATA), false, "Simple price lookup."),
-                List.of(new AgentExecution(AgentType.MARKET_DATA, AgentExecutionStatus.COMPLETED, "Market data completed.")),
+                List.of(new AgentExecution(AgentType.MARKET_DATA, AgentExecutionStatus.COMPLETED, "Market data completed.", 125)),
                 null,
                 null,
                 null,
@@ -98,7 +98,12 @@ class StockAnalysisChatToolsTest {
 
         assertThat(response).isEqualTo("Apple is trading at $200.00.");
         assertThat(metadata.fromSemanticCache()).isFalse();
-        assertThat(metadata.triggeredAgents()).containsExactly("MARKET_DATA");
+        assertThat(metadata.triggeredAgents())
+                .singleElement()
+                .satisfies(agentExecution -> {
+                    assertThat(agentExecution.agentType()).isEqualTo(AgentType.MARKET_DATA);
+                    assertThat(agentExecution.durationMs()).isEqualTo(125);
+                });
         verify(semanticAnalysisCache).store("What is Apple's current price?", "Apple is trading at $200.00.");
     }
 }

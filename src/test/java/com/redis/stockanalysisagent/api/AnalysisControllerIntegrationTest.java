@@ -74,6 +74,7 @@ class AnalysisControllerIntegrationTest {
         assertThat(response.newsSnapshot().webItems()).hasSize(1);
         assertThat(response.technicalAnalysisSnapshot()).isNotNull();
         assertThat(response.technicalAnalysisSnapshot().source()).isEqualTo("test-twelve-data");
+        assertThat(response.agentExecutions()).allSatisfy(execution -> assertThat(execution.durationMs()).isGreaterThanOrEqualTo(0));
         assertThat(response.agentExecutions().get(1).status()).isEqualTo(AgentExecutionStatus.COMPLETED);
         assertThat(response.agentExecutions().get(2).status()).isEqualTo(AgentExecutionStatus.COMPLETED);
         assertThat(response.agentExecutions().get(3).status()).isEqualTo(AgentExecutionStatus.COMPLETED);

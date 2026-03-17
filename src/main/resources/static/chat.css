@@ -504,6 +504,26 @@ body::before {
     line-height: 1.5;
 }
 
+.message__disclosure-list--agents {
+    list-style: none;
+    padding-left: 0;
+}
+
+.message__disclosure-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing-3);
+}
+
+.message__disclosure-item + .message__disclosure-item {
+    margin-top: 0.55rem;
+}
+
+.message__disclosure-item-label {
+    min-width: 0;
+}
+
 .message__disclosure-empty {
     margin: var(--spacing-3) 0 0;
     color: var(--color-text-secondary);
@@ -540,6 +560,14 @@ body::before {
     border-color: rgba(148, 163, 184, 0.26);
     color: var(--color-text-secondary);
     font-family: var(--font-family-mono);
+}
+
+.badge--timing-inline {
+    min-height: 1.3rem;
+    padding: 0.08rem 0.4rem;
+    font-size: 0.64rem;
+    letter-spacing: 0.04em;
+    flex: 0 0 auto;
 }
 
 .limitation {
