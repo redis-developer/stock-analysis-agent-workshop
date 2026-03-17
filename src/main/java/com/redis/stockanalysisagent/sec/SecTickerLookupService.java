@@ -9,6 +9,7 @@ import tools.jackson.databind.JsonNode;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Objects;
 
 @Service
 public class SecTickerLookupService {
@@ -37,11 +38,11 @@ public class SecTickerLookupService {
         if (localIndex == null) {
             synchronized (this) {
                 if (tickerIndex == null) {
-                    tickerIndex = externalDataCache.getOrLoad(
+                    tickerIndex = normalizeTickerIndex(externalDataCache.getOrLoad(
                             CacheNames.SEC_TICKER_INDEX,
                             "all",
                             this::loadTickerIndex
-                    );
+                    ));
                 }
                 localIndex = tickerIndex;
             }
@@ -79,6 +80,57 @@ public class SecTickerLookupService {
         });
 
         return Map.copyOf(companies);
+    }
+
+    private Map<String, SecCompanyReference> normalizeTickerIndex(Map<String, ?> cachedIndex) {
+        if (cachedIndex == null || cachedIndex.isEmpty()) {
+            return Map.of();
+        }
+
+        boolean needsNormalization = cachedIndex.values().stream()
+                .filter(Objects::nonNull)
+                .anyMatch(value -> !(value instanceof SecCompanyReference));
+
+        if (!needsNormalization) {
+            Map<String, SecCompanyReference> typedIndex = new LinkedHashMap<>();
+            cachedIndex.forEach((ticker, value) -> typedIndex.put(ticker, (SecCompanyReference) value));
+            return Map.copyOf(typedIndex);
+        }
+
+        Map<String, SecCompanyReference> normalized = new LinkedHashMap<>();
+        cachedIndex.forEach((ticker, value) -> normalized.put(ticker, toCompanyReference(ticker, value)));
+        return Map.copyOf(normalized);
+    }
+
+    private SecCompanyReference toCompanyReference(String tickerKey, Object value) {
+        if (value instanceof SecCompanyReference reference) {
+            return reference;
+        }
+
+        if (value instanceof Map<?, ?> map) {
+            String ticker = stringValue(map.get("ticker"));
+            String companyName = stringValue(map.get("companyName"));
+            String cik = stringValue(map.get("cik"));
+
+            String resolvedTicker = ticker != null && !ticker.isBlank()
+                    ? ticker.toUpperCase()
+                    : tickerKey.toUpperCase();
+
+            if (cik == null || cik.isBlank()) {
+                throw new IllegalStateException("Cached SEC ticker lookup entry for %s is missing a CIK.".formatted(resolvedTicker));
+            }
+
+            return new SecCompanyReference(resolvedTicker, companyName, cik);
+        }
+
+        throw new IllegalStateException(
+                "Cached SEC ticker lookup entry for %s had unexpected type %s."
+                        .formatted(tickerKey.toUpperCase(), value == null ? "null" : value.getClass().getName())
+        );
+    }
+
+    private String stringValue(Object value) {
+        return value == null ? null : value.toString();
     }
 
     private String textOrBlank(JsonNode node, String fieldName) {

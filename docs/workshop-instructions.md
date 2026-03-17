@@ -661,6 +661,62 @@ Expected result:
 
 This slice extends the same tool-backed pattern into technical analysis without giving the model responsibility for calculations. The LLM can choose the coarse technical-analysis tool, but the indicator math still stays deterministic in Java and the provider call still stays behind the cached seam.
 
+## Part 13: Tool-Backed News Agent
+
+### Objective
+
+Convert `NewsAgent` into the next specialist agent that uses Spring AI tool-calling while still relying on the cached hybrid news provider and keeping the SEC-plus-Tavily retrieval deterministic.
+
+### What Learners Build
+
+1. A `NewsTools` wrapper with a coarse `getNewsSnapshot` tool.
+2. A tool-aware `ChatClient` inside `NewsAgent`.
+3. A news prompt that requires tool use before returning a completed result.
+4. A deterministic fallback path when no chat model is configured.
+5. A direct-answer path that can reuse the news agent's own message for news-only requests.
+
+### Acceptance Criteria
+
+- `NewsAgent` uses Spring AI tools at runtime when a chat model is configured
+- the tool returns normalized hybrid news data from the existing SEC-plus-Tavily seam
+- cached SEC and Tavily lookups still prevent repeated external API hits
+- the news-only path still works in test and no-model runs
+- tests cover the deterministic fallback path
+
+### Automated Validation
+
+- run `./gradlew test`
+- verify there is a news agent test covering the no-model fallback path
+
+### Manual Smoke Test
+
+Make sure Redis is running:
+
+```bash
+docker compose up -d redis
+```
+
+Then run:
+
+```bash
+./gradlew bootRun
+```
+
+Enter:
+
+- `What recent news should I know about Apple?`
+- then `AAPL` if the coordinator asks for the ticker
+
+Expected result:
+
+- the coordinator routes to `NEWS`
+- the news agent completes successfully
+- the final answer returns a direct news assessment
+
+### Teaching Point
+
+This slice extends the same tool-backed pattern into hybrid news retrieval without making the model responsible for search correctness. The LLM can choose the coarse news tool, but the actual SEC and Tavily retrieval still stays deterministic behind the cached provider layer.
+
 ## Authoring Rule
 
 Whenever a new workshop slice lands in the codebase, update this file with:

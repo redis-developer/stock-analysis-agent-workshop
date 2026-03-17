@@ -11,6 +11,7 @@ import com.redis.stockanalysisagent.agent.marketdataagent.MarketDataTools;
 import com.redis.stockanalysisagent.agent.newsagent.NewsAgent;
 import com.redis.stockanalysisagent.agent.newsagent.NewsItem;
 import com.redis.stockanalysisagent.agent.newsagent.NewsSnapshot;
+import com.redis.stockanalysisagent.agent.newsagent.NewsTools;
 import com.redis.stockanalysisagent.agent.synthesisagent.SynthesisAgent;
 import com.redis.stockanalysisagent.agent.technicalanalysisagent.TechnicalAnalysisAgent;
 import com.redis.stockanalysisagent.agent.technicalanalysisagent.TechnicalAnalysisSnapshot;
@@ -110,28 +111,31 @@ class AgentOrchestrationServiceTest {
                             Optional.empty()
                     ),
                     new NewsAgent(
-                            ticker -> {
-                                newsStarted.countDown();
-                                await(releaseAgents);
-                                return new NewsSnapshot(
-                                        ticker.toUpperCase(),
-                                        "Apple Inc.",
-                                        List.of(
-                                                new NewsItem(
-                                                        LocalDate.parse("2026-03-15"),
-                                                        "SEC",
-                                                        "8-K",
-                                                        "Current Report",
-                                                        "Company event signal.",
-                                                        "https://www.sec.gov/example"
-                                                )
-                                        ),
-                                        List.of(),
-                                        null,
-                                        "test-sec-news"
-                                );
-                            },
-                            tavilyStub()
+                            new NewsTools(
+                                    ticker -> {
+                                        newsStarted.countDown();
+                                        await(releaseAgents);
+                                        return new NewsSnapshot(
+                                                ticker.toUpperCase(),
+                                                "Apple Inc.",
+                                                List.of(
+                                                        new NewsItem(
+                                                                LocalDate.parse("2026-03-15"),
+                                                                "SEC",
+                                                                "8-K",
+                                                                "Current Report",
+                                                                "Company event signal.",
+                                                                "https://www.sec.gov/example"
+                                                        )
+                                                ),
+                                                List.of(),
+                                                null,
+                                                "test-sec-news"
+                                        );
+                                    },
+                                    tavilyStub()
+                            ),
+                            Optional.empty()
                     ),
                     new TechnicalAnalysisAgent(
                             ticker -> {

@@ -371,6 +371,42 @@ Manual:
 
 This is the third specialist-agent conversion pattern. The LLM now controls a bounded technical-analysis tool inside `TechnicalAnalysisAgent`, but the actual indicator calculations still stay deterministic in Java and the external call still goes through the cache-aware provider layer.
 
+## Checkpoint 13: Tool-Backed News Agent
+
+### Learners Implement
+
+- a `NewsTools` wrapper with a coarse `getNewsSnapshot` Spring AI tool
+- a tool-aware `ChatClient` inside `NewsAgent`
+- a news prompt that requires tool usage before returning a completed result
+- a deterministic fallback path for test and no-model runs
+- direct-answer wiring so news-only requests can reuse the news agent's own message
+
+### Facilitator Provides
+
+- the cached hybrid news provider seam from earlier checkpoints
+- the existing SEC-plus-Tavily merge behavior
+- the Redis cache layer that already protects upstream provider calls
+
+### Validation
+
+Automated:
+
+- `./gradlew test`
+- confirm there is a dedicated news agent test covering the no-model fallback path
+
+Manual:
+
+- run `docker compose up -d redis`
+- run `./gradlew bootRun`
+- enter `What recent news should I know about Apple?`
+- answer `AAPL` if the coordinator asks for a ticker
+- confirm `Selected agents` contains `NEWS`
+- confirm the request returns a direct news answer
+
+### Teaching Point
+
+This is the fourth specialist-agent conversion pattern. The LLM now controls a bounded hybrid-news tool inside `NewsAgent`, but the actual SEC and Tavily retrieval still stays deterministic behind the cache-aware provider layer.
+
 ## Delivery Recommendation
 
 If time is tight, treat these as the must-hit live checkpoints:
@@ -384,3 +420,4 @@ If time is tight, treat these as the must-hit live checkpoints:
 7. Checkpoint 10 for the first tool-backed specialist agent
 8. Checkpoint 11 for the second tool-backed specialist agent
 9. Checkpoint 12 for the third tool-backed specialist agent
+10. Checkpoint 13 for the fourth tool-backed specialist agent

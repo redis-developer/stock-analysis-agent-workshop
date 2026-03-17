@@ -42,13 +42,14 @@ Build a stock-analysis multi-agent orchestration application with Spring AI wher
   - Market data converted into the first tool-backed LLM specialist agent
   - Fundamentals converted into the second tool-backed LLM specialist agent
   - Technical analysis converted into the third tool-backed LLM specialist agent
+  - News converted into the fourth tool-backed LLM specialist agent
 - In progress
   - Hardening milestone
   - Workshop polish milestone
 - Next up
   - add timeouts and retry boundaries around external providers
   - add workshop checkpoint tags or branches when the teaching path is stable
-  - decide how to evolve the news agent toward a tool-backed LLM flow without duplicating provider calls
+  - decide whether the remaining workshop polish should focus on hardening, observability, or checkpoint packaging next
 
 ## Milestones
 
@@ -91,7 +92,7 @@ If a milestone cannot be verified through all three, it is not done.
 - `agent/marketdataagent/MarketDataResult` holds the market-agent result.
 - `agent/fundamentalsagent/FundamentalsAgent` is now the second tool-backed specialist agent and uses Spring AI tool-calling against the cached fundamentals provider.
 - `agent/fundamentalsagent/FundamentalsResult` holds the fundamentals-agent result.
-- `agent/newsagent/NewsAgent` executes the hybrid recent-events and web-news step.
+- `agent/newsagent/NewsAgent` is now the fourth tool-backed specialist agent and uses Spring AI tool-calling against the cached hybrid news provider.
 - `agent/newsagent/NewsResult` holds the news-agent result.
 - `agent/technicalanalysisagent/TechnicalAnalysisAgent` is now the third tool-backed specialist agent and uses Spring AI tool-calling against the cached technical-analysis provider.
 - `agent/technicalanalysisagent/TechnicalAnalysisResult` holds the technical-analysis result.
@@ -113,6 +114,7 @@ If a milestone cannot be verified through all three, it is not done.
 - market data is the first specialist agent using Spring AI tools, which gives the workshop a concrete pattern for converting more specialized agents later.
 - fundamentals now follows the same tool-backed specialist pattern and can reuse market context from orchestration without re-triggering market APIs.
 - technical analysis now follows the same tool-backed specialist pattern while still keeping the indicator calculations deterministic in Java.
+- news now follows the same tool-backed specialist pattern while still keeping the SEC-plus-Tavily retrieval deterministic behind the cached provider layer.
 - Integration and orchestration tests are green and provide a simple routing override for repeatable verification.
 - the repository now includes separate learner instructions, checkpoint mapping, and facilitator notes so the teaching path is no longer implicit.
 

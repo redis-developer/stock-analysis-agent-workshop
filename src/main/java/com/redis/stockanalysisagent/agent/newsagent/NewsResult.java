@@ -21,7 +21,11 @@ public class NewsResult {
     }
 
     public static NewsResult completed(NewsSnapshot finalResponse) {
-        return new NewsResult(FinishReason.COMPLETED, null, finalResponse);
+        return completed(null, finalResponse);
+    }
+
+    public static NewsResult completed(String message, NewsSnapshot finalResponse) {
+        return new NewsResult(FinishReason.COMPLETED, message, finalResponse);
     }
 
     public static NewsResult error(String message) {
