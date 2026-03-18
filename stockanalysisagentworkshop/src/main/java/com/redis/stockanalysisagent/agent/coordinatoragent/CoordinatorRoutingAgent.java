@@ -11,9 +11,7 @@ import org.springframework.stereotype.Service;
 public class CoordinatorRoutingAgent {
     private final ChatClient coordinatorChatClient;
 
-    public CoordinatorRoutingAgent(
-            @Qualifier("coordinatorChatClient") ChatClient coordinatorChatClient
-    ) {
+    public CoordinatorRoutingAgent(@Qualifier("coordinatorChatClient") ChatClient coordinatorChatClient) {
         this.coordinatorChatClient = coordinatorChatClient;
     }
 
@@ -26,6 +24,10 @@ public class CoordinatorRoutingAgent {
                 .responseEntity(RoutingDecision.class);
 
         RoutingDecision decision = response.entity();
+        if (decision == null) {
+            throw new IllegalStateException("Coordinator routing returned an empty response.");
+        }
+
         return new RoutingResult(decision, TokenUsageSummary.from(response.response()));
     }
 

@@ -33,7 +33,7 @@ class ChatRunner {
 
     AnalysisTurn analyze(String request, String conversationId) {
         long coordinatorStartedAt = System.nanoTime();
-        CoordinatorAgent.RoutingOutcome routingOutcome = coordinatorAgent.executeWithMetadata(request, conversationId);
+        CoordinatorAgent.RoutingOutcome routingOutcome = coordinatorAgent.execute(request, conversationId);
         RoutingDecision routingDecision = routingOutcome.routingDecision();
         List<ChatExecutionStep> executionSteps = new ArrayList<>();
         executionSteps.add(agentStep(
@@ -141,26 +141,16 @@ class ChatRunner {
                     routedAgentSummary = routedAgentSummary + ", Synthesis";
                 }
 
-                String ticker = normalizeText(routingDecision.getResolvedTicker());
-                String reasoning = normalizeText(routingDecision.getReasoning());
+                String ticker = routingDecision.getResolvedTicker();
+                String reasoning = routingDecision.getReasoning();
                 String baseSummary = ticker == null
                         ? "Routed the request to %s.".formatted(routedAgentSummary)
                         : "Resolved %s and routed the request to %s.".formatted(ticker.toUpperCase(), routedAgentSummary);
 
                 yield reasoning == null ? baseSummary : "%s Reasoning: %s".formatted(baseSummary, reasoning);
             }
-            case NEEDS_MORE_INPUT -> {
-                String nextPrompt = normalizeText(routingDecision.getNextPrompt());
-                yield nextPrompt == null
-                        ? "Requested a clarification before routing the analysis."
-                        : "Requested clarification before routing: %s".formatted(nextPrompt);
-            }
-            case OUT_OF_SCOPE, CANNOT_PROCEED -> {
-                String finalResponse = normalizeText(routingDecision.getFinalResponse());
-                yield finalResponse == null
-                        ? "Could not route the request to the stock-analysis agents."
-                        : finalResponse;
-            }
+            case NEEDS_MORE_INPUT -> routingDecision.getNextPrompt();
+            case OUT_OF_SCOPE, CANNOT_PROCEED -> routingDecision.getFinalResponse();
         };
     }
 
@@ -172,15 +162,6 @@ class ChatRunner {
             case TECHNICAL_ANALYSIS -> "Technical Analysis";
             case SYNTHESIS -> "Synthesis";
         };
-    }
-
-    private String normalizeText(String value) {
-        if (value == null) {
-            return null;
-        }
-
-        String normalized = value.replace('\n', ' ').replaceAll("\\s+", " ").trim();
-        return normalized.isBlank() ? null : normalized;
     }
 
     private long elapsedDurationMs(long startedAt) {

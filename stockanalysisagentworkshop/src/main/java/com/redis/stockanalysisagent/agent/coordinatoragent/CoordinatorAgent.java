@@ -52,6 +52,19 @@ public class CoordinatorAgent {
     }
 
     public AnalysisRequest toAnalysisRequest(RoutingDecision routingDecision) {
+        if (routingDecision.getFinishReason() != RoutingDecision.FinishReason.COMPLETED) {
+            throw new IllegalStateException(
+                    "Coordinator routing must be COMPLETED before it can be converted into an analysis request."
+            );
+        }
+
+        if (routingDecision.getResolvedTicker() == null || routingDecision.getResolvedTicker().isBlank()) {
+            throw new IllegalStateException("Coordinator routing returned a blank resolvedTicker.");
+        }
+        if (routingDecision.getResolvedQuestion() == null || routingDecision.getResolvedQuestion().isBlank()) {
+            throw new IllegalStateException("Coordinator routing returned a blank resolvedQuestion.");
+        }
+
         return new AnalysisRequest(
                 routingDecision.getResolvedTicker().trim().toUpperCase(),
                 routingDecision.getResolvedQuestion().trim()
