@@ -1,34 +1,28 @@
 package com.redis.stockanalysisagent.chat;
 
+import com.redis.stockanalysisagent.agent.coordinatoragent.CoordinatorAgent;
+import com.redis.stockanalysisagent.agent.coordinatoragent.RoutingDecision;
 import com.redis.stockanalysisagent.agent.orchestration.AgentExecution;
 import com.redis.stockanalysisagent.agent.orchestration.AgentExecutionStatus;
 import com.redis.stockanalysisagent.agent.orchestration.AgentOrchestrationService;
 import com.redis.stockanalysisagent.agent.orchestration.AgentType;
 import com.redis.stockanalysisagent.agent.orchestration.AnalysisRequest;
 import com.redis.stockanalysisagent.agent.orchestration.AnalysisResponse;
-import com.redis.stockanalysisagent.agent.coordinatoragent.CoordinatorAgent;
-import com.redis.stockanalysisagent.agent.coordinatoragent.RoutingDecision;
-import org.springframework.ai.tool.annotation.Tool;
-import org.springframework.ai.tool.annotation.ToolParam;
 import org.springframework.stereotype.Component;
 
-import java.util.LinkedHashMap;
+import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 
 @Component
-public class StockAnalysisChatTools {
+class ChatAnalysisRunner {
 
-    private static final String KIND_SYSTEM = "system";
     private static final String KIND_AGENT = "agent";
     private static final String COORDINATOR = "COORDINATOR";
-    private static final ToolResultMetadata NO_METADATA = new ToolResultMetadata(List.of(), false);
 
     private final CoordinatorAgent coordinatorAgent;
     private final AgentOrchestrationService agentOrchestrationService;
-    private final ThreadLocal<ToolResultAccumulator> invocationMetadata = ThreadLocal.withInitial(ToolResultAccumulator::new);
 
-    public StockAnalysisChatTools(
+    ChatAnalysisRunner(
             CoordinatorAgent coordinatorAgent,
             AgentOrchestrationService agentOrchestrationService
     ) {
@@ -36,51 +30,34 @@ public class StockAnalysisChatTools {
         this.agentOrchestrationService = agentOrchestrationService;
     }
 
-    @Tool(description = "Run the stock-analysis orchestration for a user's question. Use this once per user turn for in-scope stock-analysis requests, including combined requests that need fundamentals, news, technicals, and synthesis together. Pass the full request instead of decomposing it into separate tool calls unless you are only asking a clarification question.")
-    public String analyzeStockRequest(
-            @ToolParam(description = "The user's stock-analysis request in plain English, including any ticker or company reference resolved from conversation context.")
-            String request
-    ) {
-        return analyzeStockRequest(request, null);
-    }
-
-    public String analyzeStockRequest(String request, String conversationId) {
-        ToolResultAccumulator metadata = invocationMetadata.get();
+    AnalysisTurn analyze(String request, String conversationId) {
         long coordinatorStartedAt = System.nanoTime();
-        RoutingDecision routingDecision = conversationId == null
-                ? coordinatorAgent.execute(request)
-                : coordinatorAgent.execute(request, conversationId);
-        metadata.recordInvocation(List.of(agentStep(
+        RoutingDecision routingDecision = coordinatorAgent.execute(request, conversationId);
+        List<ChatExecutionStep> executionSteps = new ArrayList<>();
+        executionSteps.add(agentStep(
                 COORDINATOR,
                 "Coordinator",
                 elapsedDurationMs(coordinatorStartedAt),
                 coordinatorSummary(routingDecision)
-        )));
+        ));
 
         if (routingDecision.getFinishReason() == RoutingDecision.FinishReason.NEEDS_MORE_INPUT) {
-            return routingDecision.getNextPrompt();
+            return new AnalysisTurn(routingDecision.getNextPrompt(), List.copyOf(executionSteps), false);
         }
 
         if (routingDecision.getFinishReason() != RoutingDecision.FinishReason.COMPLETED) {
-            return resolveCoordinatorMessage(routingDecision);
+            return new AnalysisTurn(resolveCoordinatorMessage(routingDecision), List.copyOf(executionSteps), false);
         }
 
         AnalysisRequest analysisRequest = coordinatorAgent.toAnalysisRequest(routingDecision);
         AnalysisResponse response = agentOrchestrationService.processRequest(analysisRequest, routingDecision);
-        String renderedResponse = renderAnalysis(response);
-        metadata.recordInvocation(extractExecutionSteps(response));
-        metadata.markCacheable(response.limitations().isEmpty());
-        return renderedResponse;
-    }
+        executionSteps.addAll(extractExecutionSteps(response));
 
-    public void resetInvocationMetadata() {
-        invocationMetadata.remove();
-    }
-
-    public ToolResultMetadata consumeInvocationMetadata() {
-        ToolResultAccumulator metadata = invocationMetadata.get();
-        invocationMetadata.remove();
-        return metadata == null ? NO_METADATA : metadata.snapshot();
+        return new AnalysisTurn(
+                renderAnalysis(response),
+                List.copyOf(executionSteps),
+                response.limitations().isEmpty()
+        );
     }
 
     private String resolveCoordinatorMessage(RoutingDecision routingDecision) {
@@ -115,16 +92,6 @@ public class StockAnalysisChatTools {
                 .toList();
     }
 
-    private long elapsedDurationMs(long startedAt) {
-        return Math.max(0, (System.nanoTime() - startedAt) / 1_000_000);
-    }
-
-    public record ToolResultMetadata(
-            List<ChatExecutionStep> executionSteps,
-            boolean cacheable
-    ) {
-    }
-
     private ChatExecutionStep toExecutionStep(AgentExecution agentExecution) {
         return agentStep(
                 agentExecution.agentType().name(),
@@ -132,10 +99,6 @@ public class StockAnalysisChatTools {
                 agentExecution.durationMs(),
                 agentExecution.summary()
         );
-    }
-
-    private ChatExecutionStep systemStep(String id, String label, long durationMs, String summary) {
-        return new ChatExecutionStep(id, label, KIND_SYSTEM, durationMs, summary);
     }
 
     private ChatExecutionStep agentStep(String id, String label, long durationMs, String summary) {
@@ -199,59 +162,14 @@ public class StockAnalysisChatTools {
         return normalized.isBlank() ? null : normalized;
     }
 
-    private static final class ToolResultAccumulator {
+    private long elapsedDurationMs(long startedAt) {
+        return Math.max(0, (System.nanoTime() - startedAt) / 1_000_000);
+    }
 
-        private int invocationCount;
-        private boolean cacheable;
-        private final Map<String, ChatExecutionStep> executionSteps = new LinkedHashMap<>();
-
-        private void recordInvocation(List<ChatExecutionStep> steps) {
-            invocationCount += 1;
-
-            for (ChatExecutionStep step : steps) {
-                executionSteps.merge(step.id(), step, ToolResultAccumulator::mergeExecutionStep);
-            }
-        }
-
-        private void markCacheable(boolean cacheable) {
-            this.cacheable = this.cacheable || cacheable;
-        }
-
-        private ToolResultMetadata snapshot() {
-            if (invocationCount == 0) {
-                return NO_METADATA;
-            }
-
-            return new ToolResultMetadata(
-                    List.copyOf(executionSteps.values()),
-                    cacheable
-            );
-        }
-
-        private static ChatExecutionStep mergeExecutionStep(ChatExecutionStep existing, ChatExecutionStep incoming) {
-            return new ChatExecutionStep(
-                    incoming.id(),
-                    incoming.label(),
-                    incoming.kind(),
-                    existing.durationMs() + incoming.durationMs(),
-                    mergeSummaries(existing.summary(), incoming.summary())
-            );
-        }
-
-        private static String mergeSummaries(String existing, String incoming) {
-            if (incoming == null || incoming.isBlank()) {
-                return existing;
-            }
-
-            if (existing == null || existing.isBlank()) {
-                return incoming;
-            }
-
-            if (existing.equals(incoming)) {
-                return existing;
-            }
-
-            return existing + "\n\n" + incoming;
-        }
+    record AnalysisTurn(
+            String response,
+            List<ChatExecutionStep> executionSteps,
+            boolean cacheable
+    ) {
     }
 }

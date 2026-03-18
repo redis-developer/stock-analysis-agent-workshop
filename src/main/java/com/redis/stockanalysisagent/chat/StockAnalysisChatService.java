@@ -21,18 +21,18 @@ public class StockAnalysisChatService {
 
     private final ChatMemory chatMemory;
     private final AmsChatMemoryRepository memoryRepository;
-    private final StockAnalysisChatTools stockAnalysisChatTools;
+    private final ChatAnalysisRunner chatAnalysisRunner;
     private final SemanticAnalysisCache semanticAnalysisCache;
 
     public StockAnalysisChatService(
             ChatMemory chatMemory,
             AmsChatMemoryRepository memoryRepository,
-            StockAnalysisChatTools stockAnalysisChatTools,
+            ChatAnalysisRunner chatAnalysisRunner,
             SemanticAnalysisCache semanticAnalysisCache
     ) {
         this.chatMemory = chatMemory;
         this.memoryRepository = memoryRepository;
-        this.stockAnalysisChatTools = stockAnalysisChatTools;
+        this.chatAnalysisRunner = chatAnalysisRunner;
         this.semanticAnalysisCache = semanticAnalysisCache;
     }
 
@@ -66,16 +66,14 @@ public class StockAnalysisChatService {
                 "Checked the semantic cache and found no reusable response."
         ));
 
-        stockAnalysisChatTools.resetInvocationMetadata();
-        String response = stockAnalysisChatTools.analyzeStockRequest(normalizedMessage, conversationId);
-        StockAnalysisChatTools.ToolResultMetadata metadata = stockAnalysisChatTools.consumeInvocationMetadata();
-        executionSteps.addAll(metadata.executionSteps());
-        if (metadata.cacheable()) {
-            semanticAnalysisCache.store(normalizedMessage, response);
+        ChatAnalysisRunner.AnalysisTurn analysisTurn = chatAnalysisRunner.analyze(normalizedMessage, conversationId);
+        executionSteps.addAll(analysisTurn.executionSteps());
+        if (analysisTurn.cacheable()) {
+            semanticAnalysisCache.store(normalizedMessage, analysisTurn.response());
         }
 
         long saveTurnStartedAt = System.nanoTime();
-        boolean saveSucceeded = saveTurn(conversationId, normalizedMessage, response);
+        boolean saveSucceeded = saveTurn(conversationId, normalizedMessage, analysisTurn.response());
         executionSteps.add(systemStep(
                 "TURN_SAVE",
                 "Turn save",
@@ -85,7 +83,7 @@ public class StockAnalysisChatService {
 
         return new ChatTurn(
                 conversationId,
-                response,
+                analysisTurn.response(),
                 memoryRepository.getLastRetrievedMemories(),
                 false,
                 List.copyOf(executionSteps)
