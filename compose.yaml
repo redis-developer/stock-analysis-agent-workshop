@@ -61,6 +61,12 @@ services:
       redis:
         condition: service_healthy
 
+  zipkin:
+    image: openzipkin/zipkin:latest
+    container_name: stock-analysis-agent-zipkin
+    ports:
+      - "9411:9411"
+
 volumes:
   redis-data:
   redis-insight-data:
