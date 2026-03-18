@@ -5,9 +5,9 @@ import com.redis.agentmemory.exceptions.MemoryClientException;
 import com.redis.agentmemory.models.longtermemory.MemoryRecordResults;
 import com.redis.agentmemory.models.longtermemory.SearchRequest;
 import com.redis.agentmemory.models.workingmemory.MemoryMessage;
-import com.redis.agentmemory.models.workingmemory.SessionListResponse;
 import com.redis.agentmemory.models.workingmemory.WorkingMemory;
 import com.redis.agentmemory.models.workingmemory.WorkingMemoryResponse;
+import com.redis.agentmemory.models.workingmemory.SessionListResponse;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 

@@ -1,0 +1,103 @@
+spring:
+  application:
+    name: stock-analysis-agent
+  web:
+    resources:
+      cache:
+        cachecontrol:
+          no-store: true
+          no-cache: true
+          must-revalidate: true
+  cache:
+    type: ${SPRING_CACHE_TYPE:redis}
+  config:
+    import:
+      - optional:file:./application-local.properties
+      - optional:file:./application-local.yaml
+      - optional:file:./application-local.yml
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+  ai:
+    openai:
+      api-key: ${OPENAI_API_KEY:${SPRING_AI_OPENAI_API_KEY:}}
+      chat:
+        options:
+          model: gpt-4o
+      embedding:
+        options:
+          model: text-embedding-3-small
+    model:
+      chat: openai
+      embedding: openai
+      image: none
+      moderation: none
+      audio:
+        speech: none
+        transcription: none
+    chat:
+      client:
+        observations:
+          log-prompt: true
+          log-completion: true
+      observations:
+        log-prompt: true
+        log-completion: true
+    tools:
+      observations:
+        include-content: true
+
+management:
+  tracing:
+    sampling:
+      probability: 1.0
+    export:
+      zipkin:
+        endpoint: ${ZIPKIN_ENDPOINT:http://localhost:9411/api/v2/spans}
+  endpoints:
+    web:
+      exposure:
+        include: "*"
+
+stock-analysis:
+  market-data:
+    provider: twelve-data
+    twelve-data:
+      base-url: https://api.twelvedata.com
+      api-key: ${TWELVE_DATA_API_KEY:}
+  fundamentals:
+    provider: sec
+  news:
+    provider: sec
+    tavily:
+      base-url: https://api.tavily.com
+      api-key: ${TAVILY_API_KEY:}
+      max-results: 5
+  technical-analysis:
+    provider: twelve-data
+    interval: 1day
+    output-size: 60
+    sma-period: 20
+    ema-period: 20
+    rsi-period: 14
+  sec:
+    data-base-url: https://data.sec.gov
+    ticker-file-url: https://www.sec.gov/files/company_tickers.json
+    user-agent: ${SEC_USER_AGENT:stock-analysis-agent-workshop workshop@example.com}
+  semantic-cache:
+    enabled: ${SEMANTIC_CACHE_ENABLED:true}
+    distance-threshold: 0.12
+    ttl-seconds: 300
+    name: stock-analysis-semantic-cache
+    embedding-model-name: ${spring.ai.openai.embedding.options.model:text-embedding-3-small}
+    embedding-dimensions: 1536
+
+agent-memory:
+  server:
+    url: ${AGENT_MEMORY_SERVER_URL:http://localhost:8000}
+    namespace: ${AGENT_MEMORY_NAMESPACE:stock-analysis}
+
+app:
+  chat:
+    user-id: ${CHAT_USER_ID:workshop-user}

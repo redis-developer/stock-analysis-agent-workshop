@@ -16,38 +16,15 @@ public class MarketDataAgent {
         this.marketDataChatClient = marketDataChatClient;
     }
 
-    public MarketDataResult execute(String ticker) {
-        return execute(ticker, "What is the current market data for %s?".formatted(ticker.toUpperCase()));
-    }
-
     public MarketDataResult execute(String ticker, String question) {
-        ResponseEntity<ChatResponse, MarketDataResult> response = marketDataChatClient
-                .prompt()
-                .user(buildPrompt(ticker, question))
-                .call()
-                .responseEntity(MarketDataResult.class);
-        TokenUsageSummary tokenUsage = TokenUsageSummary.from(response.response());
-
-        MarketDataResult entity = response.entity();
-        if (entity == null || entity.getFinalResponse() == null || entity.getFinishReason() != MarketDataResult.FinishReason.COMPLETED) {
-            throw new IllegalStateException("Market Data Agent returned an invalid response.");
-        }
-        entity.setTokenUsage(tokenUsage);
-        return entity;
+        // PART 2 STEP 4:
+        // Replace this method body with the snippet from the Part 2 guide.
+        throw new UnsupportedOperationException("Part 2: implement execute(...)");
     }
 
     private String buildPrompt(String ticker, String question) {
-        return """
-                TICKER
-                %s
-
-                USER_QUESTION
-                %s
-
-                INSTRUCTIONS
-                - Use the available tool to fetch a current market snapshot for the ticker.
-                - Populate finalResponse with the exact tool values.
-                - message should directly answer the user's question in one concise sentence.
-                """.formatted(ticker.toUpperCase(), question);
+        // PART 2 STEP 3:
+        // Replace this method body with the snippet from the Part 2 guide.
+        throw new UnsupportedOperationException("Part 2: implement buildPrompt(...)");
     }
 }

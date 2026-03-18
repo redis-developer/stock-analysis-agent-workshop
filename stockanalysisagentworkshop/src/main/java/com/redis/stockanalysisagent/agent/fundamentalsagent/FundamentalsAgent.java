@@ -23,20 +23,13 @@ public class FundamentalsAgent {
         this.fundamentalsChatClientFactory = fundamentalsChatClientFactory;
     }
 
-    public FundamentalsResult execute(String ticker, String question) {
-        return execute(ticker, question, Optional.empty());
-    }
-
     public FundamentalsResult execute(String ticker, String question, MarketSnapshot marketSnapshot) {
-        return execute(ticker, question, Optional.of(marketSnapshot));
-    }
-
-    private FundamentalsResult execute(String ticker, String question, Optional<MarketSnapshot> marketSnapshot) {
-        ChatClient fundamentalsChatClient = fundamentalsChatClientFactory.apply(marketSnapshot);
+        Optional<MarketSnapshot> optionalMarketSnapshot = Optional.ofNullable(marketSnapshot);
+        ChatClient fundamentalsChatClient = fundamentalsChatClientFactory.apply(optionalMarketSnapshot);
 
         ResponseEntity<ChatResponse, FundamentalsResult> response = fundamentalsChatClient
                 .prompt()
-                .user(buildPrompt(ticker, question, marketSnapshot))
+                .user(buildPrompt(ticker, question, optionalMarketSnapshot))
                 .call()
                 .responseEntity(FundamentalsResult.class);
         TokenUsageSummary tokenUsage = TokenUsageSummary.from(response.response());

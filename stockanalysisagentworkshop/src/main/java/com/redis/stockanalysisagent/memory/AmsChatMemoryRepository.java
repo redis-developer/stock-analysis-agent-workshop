@@ -4,13 +4,13 @@ import com.redis.agentmemory.models.workingmemory.MemoryMessage;
 import com.redis.agentmemory.models.workingmemory.WorkingMemory;
 import com.redis.agentmemory.models.workingmemory.WorkingMemoryResponse;
 import com.redis.stockanalysisagent.memory.service.AgentMemoryService;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.memory.ChatMemoryRepository;
 import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.messages.SystemMessage;
 import org.springframework.ai.chat.messages.UserMessage;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -55,45 +55,15 @@ public class AmsChatMemoryRepository implements ChatMemoryRepository {
 
     @Override
     public List<Message> findByConversationId(String conversationId) {
-        WorkingMemoryResponse response = loadWorkingMemory(conversationId);
-        if (response == null || response.getMessages() == null) {
-            return List.of();
-        }
-
-        List<Message> messages = new ArrayList<>();
-        for (MemoryMessage msg : response.getMessages()) {
-            Message springMessage = convertToSpringMessage(msg);
-            if (springMessage != null) {
-                messages.add(springMessage);
-            }
-        }
-        return messages;
+        // PART 6 STEP 1:
+        // Replace this method body with the snippet from the Part 6 guide.
+        return List.of();
     }
 
     @Override
     public void saveAll(String conversationId, List<Message> messages) {
-        String userId = parseUserId(conversationId);
-        String sessionId = parseSessionId(conversationId);
-        List<MemoryMessage> existingMessages = existingMessages(conversationId);
-        List<MemoryMessage> newMessages = toNewMessages(messages, existingMessages);
-
-        if (newMessages.isEmpty()) {
-            return;
-        }
-
-        runSafely("save working memory for conversation " + conversationId, () -> {
-            boolean firstMessage = existingMessages.isEmpty();
-            agentMemoryService.appendMessagesToWorkingMemory(
-                    sessionId,
-                    newMessages,
-                    userId,
-                    MEMORY_MODEL
-            );
-
-            if (firstMessage) {
-                applyTtl(sessionId, userId);
-            }
-        });
+        // PART 6 STEP 2:
+        // Replace this method body with the snippet from the Part 6 guide.
     }
 
     @Override

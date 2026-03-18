@@ -15,11 +15,6 @@ public class MarketDataTools {
         this.marketDataProvider = marketDataProvider;
     }
 
-    @Tool(description = "Fetch the latest market snapshot for a stock ticker, including price, previous close, change, percent change, timestamp, and source.")
-    public MarketSnapshot getMarketSnapshot(
-            @ToolParam(description = "The stock ticker symbol in uppercase, for example AAPL.")
-            String ticker
-    ) {
-        return marketDataProvider.fetchSnapshot(ticker);
-    }
+    // PART 2 STEP 1:
+    // Replace this comment with the getMarketSnapshot(...) tool method from the Part 2 guide.
 }

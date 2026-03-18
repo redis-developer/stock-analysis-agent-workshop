@@ -7,10 +7,10 @@ import org.springframework.ai.chat.client.ChatClientRequest;
 import org.springframework.ai.chat.client.ChatClientResponse;
 import org.springframework.ai.chat.client.advisor.api.AdvisorChain;
 import org.springframework.ai.chat.client.advisor.api.BaseAdvisor;
-import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.messages.MessageType;
 import org.springframework.ai.chat.messages.UserMessage;
+import org.springframework.ai.chat.memory.ChatMemory;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -47,36 +47,9 @@ public class LongTermMemoryAdvisor implements BaseAdvisor {
 
     @Override
     public ChatClientRequest before(ChatClientRequest request, AdvisorChain advisorChain) {
-        memoryRepository.setLastRetrievedMemories(List.of());
-
-        String conversationId = (String) request.context().get(ChatMemory.CONVERSATION_ID);
-        String userId = parseUserId(conversationId);
-
-        if (userId == null || ANONYMOUS_USER.equals(userId)) {
-            return request;
-        }
-
-        String userMessage = request.prompt().getUserMessage().getText();
-        if (userMessage == null || userMessage.isBlank()) {
-            return request;
-        }
-
-        if (!hasConversationHistory(conversationId)) {
-            return request;
-        }
-
-        List<String> memories = searchMemories(userMessage, userId);
-        memoryRepository.setLastRetrievedMemories(memories);
-
-        if (memories.isEmpty()) {
-            return request;
-        }
-
-        return request.mutate()
-                .prompt(request.prompt().augmentUserMessage(existingUserMessage ->
-                        new UserMessage(augmentUserMessage(existingUserMessage.getText(), memories))))
-                .context(RETRIEVED_MEMORIES, memories)
-                .build();
+        // PART 6 STEP 3:
+        // Replace this method body with the snippet from the Part 6 guide.
+        return request;
     }
 
     @Override

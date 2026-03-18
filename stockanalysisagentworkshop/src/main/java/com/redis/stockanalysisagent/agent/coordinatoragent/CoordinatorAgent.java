@@ -20,53 +20,21 @@ public class CoordinatorAgent {
     }
 
     public ExecutionPlan createPlan(RoutingDecision routingDecision) {
-        if (routingDecision.getFinishReason() != RoutingDecision.FinishReason.COMPLETED) {
-            throw new IllegalStateException(
-                    "Coordinator routing must be COMPLETED before an execution plan can be created."
-            );
-        }
-
-        List<AgentType> selectedAgents = new ArrayList<>(new LinkedHashSet<>(selectedSpecialists(routingDecision.getSelectedAgents())));
-
-        if (selectedAgents.isEmpty()) {
-            throw new IllegalStateException("Coordinator routing returned no specialized agents.");
-        }
-
-        selectedAgents.add(AgentType.SYNTHESIS);
-
-        return new ExecutionPlan(
-                List.copyOf(selectedAgents),
-                routingDecision.getReasoning()
-        );
+        // PART 4 STEP 3A:
+        // Replace this method body with the snippet from the Part 4 guide.
+        throw new UnsupportedOperationException("Part 4: implement createPlan(...)");
     }
 
     public RoutingOutcome execute(String userMessage, String conversationId) {
-        CoordinatorRoutingAgent.RoutingResult routingResult = coordinatorRoutingAgent.route(userMessage, conversationId);
-        RoutingDecision routingDecision = routingResult.routingDecision();
-        if (routingDecision.getFinishReason() == RoutingDecision.FinishReason.NEEDS_MORE_INPUT) {
-            routingDecision.setConversationId(conversationId);
-        }
-        return new RoutingOutcome(routingDecision, routingResult.tokenUsage());
+        // PART 4 STEP 3B:
+        // Replace this method body with the snippet from the Part 4 guide.
+        throw new UnsupportedOperationException("Part 4: implement execute(...)");
     }
 
     public AnalysisRequest toAnalysisRequest(RoutingDecision routingDecision) {
-        if (routingDecision.getFinishReason() != RoutingDecision.FinishReason.COMPLETED) {
-            throw new IllegalStateException(
-                    "Coordinator routing must be COMPLETED before it can be converted into an analysis request."
-            );
-        }
-
-        if (routingDecision.getResolvedTicker() == null || routingDecision.getResolvedTicker().isBlank()) {
-            throw new IllegalStateException("Coordinator routing returned a blank resolvedTicker.");
-        }
-        if (routingDecision.getResolvedQuestion() == null || routingDecision.getResolvedQuestion().isBlank()) {
-            throw new IllegalStateException("Coordinator routing returned a blank resolvedQuestion.");
-        }
-
-        return new AnalysisRequest(
-                routingDecision.getResolvedTicker().trim().toUpperCase(),
-                routingDecision.getResolvedQuestion().trim()
-        );
+        // PART 4 STEP 3C:
+        // Replace this method body with the snippet from the Part 4 guide.
+        throw new UnsupportedOperationException("Part 4: implement toAnalysisRequest(...)");
     }
 
     private List<AgentType> selectedSpecialists(List<AgentType> selectedAgents) {

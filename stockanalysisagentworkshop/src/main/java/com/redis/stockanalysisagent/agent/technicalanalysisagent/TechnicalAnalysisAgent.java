@@ -16,10 +16,6 @@ public class TechnicalAnalysisAgent {
         this.technicalAnalysisChatClient = technicalAnalysisChatClient;
     }
 
-    public TechnicalAnalysisResult execute(String ticker) {
-        return execute(ticker, "What do the current technical signals look like for %s?".formatted(ticker.toUpperCase()));
-    }
-
     public TechnicalAnalysisResult execute(String ticker, String question) {
         ResponseEntity<ChatResponse, TechnicalAnalysisResult> response = technicalAnalysisChatClient
                 .prompt()

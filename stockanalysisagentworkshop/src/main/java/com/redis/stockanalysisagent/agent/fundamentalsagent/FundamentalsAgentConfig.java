@@ -1,7 +1,7 @@
 package com.redis.stockanalysisagent.agent.fundamentalsagent;
 
-import com.redis.stockanalysisagent.agent.marketdataagent.MarketSnapshot;
 import com.redis.stockanalysisagent.agent.tools.FundamentalsTools;
+import com.redis.stockanalysisagent.agent.marketdataagent.MarketSnapshot;
 import com.redis.stockanalysisagent.providers.sec.SecFundamentalsProvider;
 import org.springframework.ai.chat.client.AdvisorParams;
 import org.springframework.ai.chat.client.ChatClient;

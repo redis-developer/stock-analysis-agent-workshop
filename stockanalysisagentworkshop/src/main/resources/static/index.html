@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stock Analysis Chat</title>
+    <link rel="stylesheet" href="chat.css?v=20260317-token-usage">
+</head>
+<body>
+<main class="chat-app">
+    <header class="chat-header">
+        <div class="brand">
+            <span class="brand-mark" aria-hidden="true"></span>
+            <div class="brand-copy">
+                <h1>Stock Analysis Chat</h1>
+            </div>
+        </div>
+
+        <div class="header-actions">
+            <div class="session-identity" aria-label="Agent memory identity">
+                <div class="identity-item">
+                    <label class="identity-label" for="user-id-input">User</label>
+                    <input
+                        id="user-id-input"
+                        class="identity-input"
+                        type="text"
+                        autocomplete="off"
+                        spellcheck="false"
+                        placeholder="Loading..."
+                    >
+                </div>
+                <div class="identity-item">
+                    <span class="identity-label">Session</span>
+                    <span id="session-id-value" class="identity-value">Loading...</span>
+                </div>
+            </div>
+            <button id="clear-chat-button" class="btn btn-secondary" type="button">Clear chat</button>
+        </div>
+    </header>
+
+    <section id="messages" class="messages" aria-live="polite" aria-label="Conversation"></section>
+
+    <form id="composer" class="composer" novalidate>
+        <div class="composer-shell">
+            <label class="sr-only" for="question-input">Question</label>
+            <textarea
+                id="question-input"
+                name="question"
+                rows="1"
+                placeholder="Ask a stock question naturally, then follow up without repeating the company..."
+                required
+            ></textarea>
+
+            <div class="composer-footer">
+                <div class="composer-meta">
+                    <span id="status-pill" class="status-pill">Ready</span>
+                    <span class="hint">Enter to send, Shift+Enter for a new line</span>
+                </div>
+
+                <button id="send-button" class="btn btn-primary" type="submit">Send</button>
+            </div>
+        </div>
+    </form>
+</main>
+
+<template id="empty-state-template">
+    <div class="empty-state">
+        <div class="empty-state__card">
+            <p class="empty-state__eyebrow">Browser Test Harness</p>
+            <h2>Ask the stock agent anything</h2>
+            <p class="empty-state__copy">
+                Start naturally, then follow up without repeating the company every turn.
+            </p>
+            <div class="suggestions" role="list" aria-label="Suggested prompts">
+                <button class="suggestion" type="button" data-question="What's the current price of Apple?">
+                    <span class="suggestion__ticker">Apple</span>
+                    <span class="suggestion__question">What's the current price of Apple?</span>
+                </button>
+                <button class="suggestion" type="button" data-question="Give me a full view on Nvidia with fundamentals, news, and technical analysis.">
+                    <span class="suggestion__ticker">Nvidia</span>
+                    <span class="suggestion__question">Give me a full view on Nvidia with fundamentals, news, and technical analysis.</span>
+                </button>
+                <button class="suggestion" type="button" data-question="What recent news should I know about Microsoft?">
+                    <span class="suggestion__ticker">Microsoft</span>
+                    <span class="suggestion__question">What recent news should I know about Microsoft?</span>
+                </button>
+            </div>
+        </div>
+    </div>
+</template>
+
+<script src="chat.js?v=20260317-token-usage" defer></script>
+</body>
+</html>
