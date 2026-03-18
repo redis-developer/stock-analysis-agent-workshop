@@ -48,14 +48,6 @@ public class CoordinatorAgent {
         );
     }
 
-    public RoutingDecision execute(String userMessage) {
-        return execute(userMessage, UUID.randomUUID().toString());
-    }
-
-    public RoutingDecision execute(String userMessage, String conversationId) {
-        return executeWithMetadata(userMessage, conversationId).routingDecision();
-    }
-
     public RoutingOutcome executeWithMetadata(String userMessage, String conversationId) {
         CoordinatorRoutingAgent.RoutingResult routingResult = coordinatorRoutingAgent.route(userMessage, conversationId);
         RoutingDecision routingDecision = normalizeRoutingDecision(

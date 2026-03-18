@@ -1,5 +1,12 @@
 # Stock Analysis Agent Workshop
 
+This repository now has two modules:
+
+- [stockanalysisagent](/Users/raphaeldelio/Documents/GitHub/stock-analysis-agent/stockanalysisagent) for the finalized implementation
+- [stockanalysisagentworkshop](/Users/raphaeldelio/Documents/GitHub/stock-analysis-agent/stockanalysisagentworkshop) for the learner-facing workshop skeleton
+
+The repository root remains the main entrypoint, and the usual Gradle commands currently delegate to the finalized implementation module.
+
 This repository is the final implementation target for a workshop about building a stock-analysis multi-agent orchestration application with Spring AI.
 The current default experience is a memory-backed chat frontend layered on top of the orchestration flow.
 

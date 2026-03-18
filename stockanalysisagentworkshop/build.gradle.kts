@@ -1,0 +1,5 @@
+plugins {
+    base
+}
+
+description = "stockanalysisagentworkshop"
