@@ -24,7 +24,6 @@ public final class OrchestrationObservability {
     public static final String KEY_AGENT_TYPE = "orchestration.agent_type";
     public static final String KEY_AGENT_STATUS = "orchestration.agent_status";
     public static final String KEY_AGENT_COUNT = "orchestration.agent_count";
-    public static final String KEY_REQUIRES_SYNTHESIS = "orchestration.requires_synthesis";
     public static final String KEY_SEMANTIC_CACHE_HIT = "orchestration.semantic_cache_hit";
 
     // --- High cardinality keys (unbounded values, visible in span detail view) ---
@@ -75,8 +74,6 @@ public final class OrchestrationObservability {
             observation.highCardinalityKeyValue(KEY_SELECTED_AGENTS,
                     decision.getSelectedAgents().stream().map(AgentType::name).toList().toString());
         }
-        observation.lowCardinalityKeyValue(KEY_REQUIRES_SYNTHESIS,
-                String.valueOf(decision.isRequiresSynthesis()));
     }
 
     public static void enrichWithTokenUsage(Observation observation, TokenUsageSummary tokenUsage) {
