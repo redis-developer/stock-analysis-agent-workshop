@@ -13,26 +13,26 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Service
-public class StockAnalysisChatService {
+public class ChatService {
 
-    private static final Logger log = LoggerFactory.getLogger(StockAnalysisChatService.class);
+    private static final Logger log = LoggerFactory.getLogger(ChatService.class);
     private static final String KIND_SYSTEM = "system";
     private static final String SEMANTIC_CACHE = "SEMANTIC_CACHE";
 
     private final ChatMemory chatMemory;
     private final AmsChatMemoryRepository memoryRepository;
-    private final ChatAnalysisRunner chatAnalysisRunner;
+    private final ChatRunner chatRunner;
     private final SemanticAnalysisCache semanticAnalysisCache;
 
-    public StockAnalysisChatService(
+    public ChatService(
             ChatMemory chatMemory,
             AmsChatMemoryRepository memoryRepository,
-            ChatAnalysisRunner chatAnalysisRunner,
+            ChatRunner chatRunner,
             SemanticAnalysisCache semanticAnalysisCache
     ) {
         this.chatMemory = chatMemory;
         this.memoryRepository = memoryRepository;
-        this.chatAnalysisRunner = chatAnalysisRunner;
+        this.chatRunner = chatRunner;
         this.semanticAnalysisCache = semanticAnalysisCache;
     }
 
@@ -66,7 +66,7 @@ public class StockAnalysisChatService {
                 "Checked the semantic cache and found no reusable response."
         ));
 
-        ChatAnalysisRunner.AnalysisTurn analysisTurn = chatAnalysisRunner.analyze(normalizedMessage, conversationId);
+        ChatRunner.AnalysisTurn analysisTurn = chatRunner.analyze(normalizedMessage, conversationId);
         executionSteps.addAll(analysisTurn.executionSteps());
         if (analysisTurn.cacheable()) {
             semanticAnalysisCache.store(normalizedMessage, analysisTurn.response());

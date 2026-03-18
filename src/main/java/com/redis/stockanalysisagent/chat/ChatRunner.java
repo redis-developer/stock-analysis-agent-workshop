@@ -14,7 +14,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Component
-class ChatAnalysisRunner {
+class ChatRunner {
 
     private static final String KIND_AGENT = "agent";
     private static final String COORDINATOR = "COORDINATOR";
@@ -22,7 +22,7 @@ class ChatAnalysisRunner {
     private final CoordinatorAgent coordinatorAgent;
     private final AgentOrchestrationService agentOrchestrationService;
 
-    ChatAnalysisRunner(
+    ChatRunner(
             CoordinatorAgent coordinatorAgent,
             AgentOrchestrationService agentOrchestrationService
     ) {

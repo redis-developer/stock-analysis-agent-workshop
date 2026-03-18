@@ -1,6 +1,6 @@
 package com.redis.stockanalysisagent.chat.api;
 
-import com.redis.stockanalysisagent.chat.StockAnalysisChatService;
+import com.redis.stockanalysisagent.chat.ChatService;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
@@ -19,14 +19,14 @@ import java.util.UUID;
 @RequestMapping("/api/chat")
 public class ChatController {
 
-    private final StockAnalysisChatService stockAnalysisChatService;
+    private final ChatService chatService;
     private final String defaultUserId;
 
     public ChatController(
-            StockAnalysisChatService stockAnalysisChatService,
+            ChatService chatService,
             @Value("${app.chat.user-id:workshop-user}") String defaultUserId
     ) {
-        this.stockAnalysisChatService = stockAnalysisChatService;
+        this.chatService = chatService;
         this.defaultUserId = defaultUserId;
     }
 
@@ -35,7 +35,7 @@ public class ChatController {
         String userId = normalizeUserId(request.userId());
         String sessionId = normalizeSessionId(request.sessionId());
         long startedAt = System.nanoTime();
-        StockAnalysisChatService.ChatTurn turn = stockAnalysisChatService.chat(
+        ChatService.ChatTurn turn = chatService.chat(
                 userId,
                 sessionId,
                 request.message().trim()
@@ -64,7 +64,7 @@ public class ChatController {
             @PathVariable String sessionId,
             @RequestParam(required = false) String userId
     ) {
-        stockAnalysisChatService.clearSession(normalizeUserId(userId), sessionId);
+        chatService.clearSession(normalizeUserId(userId), sessionId);
         return ResponseEntity.noContent().build();
     }
 
