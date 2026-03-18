@@ -17,8 +17,6 @@ import com.redis.stockanalysisagent.agent.technicalanalysisagent.TechnicalAnalys
 import com.redis.stockanalysisagent.agent.technicalanalysisagent.TechnicalAnalysisSnapshot;
 import org.springframework.stereotype.Service;
 
-import java.util.List;
-
 @Service
 public class AgentOrchestrationService {
 
@@ -145,12 +143,10 @@ public class AgentOrchestrationService {
         long synthesisStartedAt = System.nanoTime();
         SynthesisResult synthesisResult = synthesisAgent.synthesize(
                 request,
-                executionPlan,
                 structuredOutput(state, AgentType.MARKET_DATA, MarketSnapshot.class),
                 structuredOutput(state, AgentType.FUNDAMENTALS, FundamentalsSnapshot.class),
                 structuredOutput(state, AgentType.NEWS, NewsSnapshot.class),
-                structuredOutput(state, AgentType.TECHNICAL_ANALYSIS, TechnicalAnalysisSnapshot.class),
-                state.agentExecutions()
+                structuredOutput(state, AgentType.TECHNICAL_ANALYSIS, TechnicalAnalysisSnapshot.class)
         );
 
         state.addExecution(new AgentExecution(

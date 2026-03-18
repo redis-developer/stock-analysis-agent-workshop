@@ -44,59 +44,6 @@ public class RoutingDecision {
         this.reasoning = reasoning;
     }
 
-    public static RoutingDecision completed(
-            String resolvedTicker,
-            String resolvedQuestion,
-            List<AgentType> selectedAgents,
-            String reasoning
-    ) {
-        return new RoutingDecision(
-                FinishReason.COMPLETED,
-                null,
-                null,
-                resolvedTicker,
-                resolvedQuestion,
-                selectedAgents,
-                reasoning
-        );
-    }
-
-    public static RoutingDecision needsMoreInput(String nextPrompt) {
-        return new RoutingDecision(
-                FinishReason.NEEDS_MORE_INPUT,
-                nextPrompt,
-                null,
-                null,
-                null,
-                new ArrayList<>(),
-                null
-        );
-    }
-
-    public static RoutingDecision outOfScope(String finalResponse) {
-        return new RoutingDecision(
-                FinishReason.OUT_OF_SCOPE,
-                null,
-                finalResponse,
-                null,
-                null,
-                new ArrayList<>(),
-                null
-        );
-    }
-
-    public static RoutingDecision cannotProceed(String finalResponse) {
-        return new RoutingDecision(
-                FinishReason.CANNOT_PROCEED,
-                null,
-                finalResponse,
-                null,
-                null,
-                new ArrayList<>(),
-                null
-        );
-    }
-
     public FinishReason getFinishReason() {
         return finishReason;
     }

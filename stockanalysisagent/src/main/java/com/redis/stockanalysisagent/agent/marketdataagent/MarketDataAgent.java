@@ -16,10 +16,6 @@ public class MarketDataAgent {
         this.marketDataChatClient = marketDataChatClient;
     }
 
-    public MarketDataResult execute(String ticker) {
-        return execute(ticker, "What is the current market data for %s?".formatted(ticker.toUpperCase()));
-    }
-
     public MarketDataResult execute(String ticker, String question) {
         ResponseEntity<ChatResponse, MarketDataResult> response = marketDataChatClient
                 .prompt()
