@@ -6,7 +6,7 @@ services:
       - "8000:8000"
     environment:
       # In this local setup the Agent Memory Server image reaches Redis through the host-mapped port.
-      REDIS_URL: redis://localhost:6379
+      REDIS_URL: redis://redis:6379
       PORT: 8000
       GENERATION_MODEL: ${AGENT_MEMORY_GENERATION_MODEL:-gpt-4o-mini}
       EMBEDDING_MODEL: ${AGENT_MEMORY_EMBEDDING_MODEL:-text-embedding-3-small}
