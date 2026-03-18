@@ -32,12 +32,10 @@ public class CoordinatorAgent {
             throw new IllegalStateException("Coordinator routing returned no specialized agents.");
         }
 
-        boolean requiresSynthesis = true;
         selectedAgents.add(AgentType.SYNTHESIS);
 
         return new ExecutionPlan(
                 List.copyOf(selectedAgents),
-                requiresSynthesis,
                 routingDecision.getReasoning()
         );
     }

@@ -38,7 +38,6 @@ public class CoordinatorRoutingAgentConfig {
             - When finishReason = COMPLETED, set resolvedQuestion to the user's final stock-analysis question.
             - Select the smallest set of specialized agents needed to answer the question well.
             - Do not include SYNTHESIS in selectedAgents. The application always adds it for final answer generation.
-            - Set requiresSynthesis to true.
             - Prefer minimal routing over broad routing.
             - Return only agent names from the allowed enum values.
 

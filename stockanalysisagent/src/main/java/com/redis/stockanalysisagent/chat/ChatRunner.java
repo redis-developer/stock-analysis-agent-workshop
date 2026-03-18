@@ -135,11 +135,8 @@ class ChatRunner {
                         .map(this::formatAgentLabel)
                         .toList();
                 String routedAgentSummary = routedAgents.isEmpty()
-                        ? "no specialized agents"
-                        : String.join(", ", routedAgents);
-                if (routingDecision.isRequiresSynthesis()) {
-                    routedAgentSummary = routedAgentSummary + ", Synthesis";
-                }
+                        ? "Synthesis"
+                        : String.join(", ", routedAgents) + ", Synthesis";
 
                 String ticker = routingDecision.getResolvedTicker();
                 String reasoning = routingDecision.getReasoning();

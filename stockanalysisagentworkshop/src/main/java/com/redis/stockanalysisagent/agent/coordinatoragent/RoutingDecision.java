@@ -21,7 +21,6 @@ public class RoutingDecision {
     private String resolvedTicker;
     private String resolvedQuestion;
     private List<AgentType> selectedAgents = new ArrayList<>();
-    private boolean requiresSynthesis;
     private String reasoning;
 
     public RoutingDecision() {
@@ -34,7 +33,6 @@ public class RoutingDecision {
             String resolvedTicker,
             String resolvedQuestion,
             List<AgentType> selectedAgents,
-            boolean requiresSynthesis,
             String reasoning
     ) {
         this.finishReason = finishReason;
@@ -43,19 +41,13 @@ public class RoutingDecision {
         this.resolvedTicker = resolvedTicker;
         this.resolvedQuestion = resolvedQuestion;
         this.selectedAgents = selectedAgents;
-        this.requiresSynthesis = requiresSynthesis;
         this.reasoning = reasoning;
-    }
-
-    public static RoutingDecision of(List<AgentType> selectedAgents, boolean requiresSynthesis, String reasoning) {
-        return completed(null, null, selectedAgents, requiresSynthesis, reasoning);
     }
 
     public static RoutingDecision completed(
             String resolvedTicker,
             String resolvedQuestion,
             List<AgentType> selectedAgents,
-            boolean requiresSynthesis,
             String reasoning
     ) {
         return new RoutingDecision(
@@ -65,7 +57,6 @@ public class RoutingDecision {
                 resolvedTicker,
                 resolvedQuestion,
                 selectedAgents,
-                requiresSynthesis,
                 reasoning
         );
     }
@@ -78,7 +69,6 @@ public class RoutingDecision {
                 null,
                 null,
                 new ArrayList<>(),
-                false,
                 null
         );
     }
@@ -91,7 +81,6 @@ public class RoutingDecision {
                 null,
                 null,
                 new ArrayList<>(),
-                false,
                 null
         );
     }
@@ -104,7 +93,6 @@ public class RoutingDecision {
                 null,
                 null,
                 new ArrayList<>(),
-                false,
                 null
         );
     }
@@ -163,14 +151,6 @@ public class RoutingDecision {
 
     public void setSelectedAgents(List<AgentType> selectedAgents) {
         this.selectedAgents = selectedAgents;
-    }
-
-    public boolean isRequiresSynthesis() {
-        return requiresSynthesis;
-    }
-
-    public void setRequiresSynthesis(boolean requiresSynthesis) {
-        this.requiresSynthesis = requiresSynthesis;
     }
 
     public String getReasoning() {

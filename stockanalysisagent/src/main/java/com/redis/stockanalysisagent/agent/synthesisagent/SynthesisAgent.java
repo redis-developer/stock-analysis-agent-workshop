@@ -76,7 +76,6 @@ public class SynthesisAgent {
 
                 ROUTING_CONTEXT
                 Selected agents: %s
-                Requires synthesis: %s
                 Routing reasoning: %s
 
                 MARKET_DATA
@@ -99,7 +98,6 @@ public class SynthesisAgent {
                 request.question(),
                 request.ticker(),
                 executionPlan.selectedAgents(),
-                executionPlan.requiresSynthesis(),
                 executionPlan.routingReasoning(),
                 formatMarketSection(marketSnapshot),
                 formatFundamentalsSection(fundamentalsSnapshot),
