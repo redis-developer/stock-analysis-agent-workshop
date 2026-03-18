@@ -9,10 +9,14 @@ import com.redis.stockanalysisagent.agent.orchestration.AgentOrchestrationServic
 import com.redis.stockanalysisagent.agent.orchestration.AnalysisRequest;
 import com.redis.stockanalysisagent.agent.orchestration.AnalysisResponse;
 import com.redis.stockanalysisagent.agent.orchestration.TokenUsageSummary;
+import io.micrometer.observation.Observation;
+import io.micrometer.observation.ObservationRegistry;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.List;
+
+import static com.redis.stockanalysisagent.observability.OrchestrationObservability.*;
 
 @Service
 class ChatAnalysisService {
@@ -22,18 +26,21 @@ class ChatAnalysisService {
 
     private final CoordinatorAgent coordinatorAgent;
     private final AgentOrchestrationService agentOrchestrationService;
+    private final ObservationRegistry observationRegistry;
 
     ChatAnalysisService(
             CoordinatorAgent coordinatorAgent,
-            AgentOrchestrationService agentOrchestrationService
+            AgentOrchestrationService agentOrchestrationService,
+            ObservationRegistry observationRegistry
     ) {
         this.coordinatorAgent = coordinatorAgent;
         this.agentOrchestrationService = agentOrchestrationService;
+        this.observationRegistry = observationRegistry;
     }
 
     AnalysisTurn analyze(String request, String conversationId) {
         long coordinatorStartedAt = System.nanoTime();
-        CoordinatorAgent.RoutingOutcome routingOutcome = coordinatorAgent.execute(request, conversationId);
+        CoordinatorAgent.RoutingOutcome routingOutcome = observeCoordinator(request, conversationId);
         RoutingDecision routingDecision = routingOutcome.routingDecision();
         List<ChatExecutionStep> executionSteps = new ArrayList<>();
         executionSteps.add(analysisStep(
@@ -72,6 +79,23 @@ class ChatAnalysisService {
                 true,
                 TokenUsageSummary.sum(executionSteps.stream().map(ChatExecutionStep::tokenUsage).toList())
         );
+    }
+
+    private CoordinatorAgent.RoutingOutcome observeCoordinator(String request, String conversationId) {
+        Observation observation = coordinatorObservation(observationRegistry)
+                .highCardinalityKeyValue(KEY_CONVERSATION_ID, conversationId)
+                .start();
+        try {
+            CoordinatorAgent.RoutingOutcome outcome = coordinatorAgent.execute(request, conversationId);
+            enrichWithRoutingDecision(observation, outcome.routingDecision());
+            enrichWithTokenUsage(observation, outcome.tokenUsage());
+            return outcome;
+        } catch (Throwable t) {
+            observation.error(t);
+            throw t;
+        } finally {
+            observation.stop();
+        }
     }
 
     private String resolveCoordinatorMessage(RoutingDecision routingDecision) {
