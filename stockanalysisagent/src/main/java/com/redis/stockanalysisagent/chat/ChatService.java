@@ -22,18 +22,18 @@ public class ChatService {
 
     private final ChatMemory chatMemory;
     private final AmsChatMemoryRepository memoryRepository;
-    private final ChatRunner chatRunner;
+    private final ChatAnalysisService chatAnalysisService;
     private final SemanticAnalysisCache semanticAnalysisCache;
 
     public ChatService(
             ChatMemory chatMemory,
             AmsChatMemoryRepository memoryRepository,
-            ChatRunner chatRunner,
+            ChatAnalysisService chatAnalysisService,
             SemanticAnalysisCache semanticAnalysisCache
     ) {
         this.chatMemory = chatMemory;
         this.memoryRepository = memoryRepository;
-        this.chatRunner = chatRunner;
+        this.chatAnalysisService = chatAnalysisService;
         this.semanticAnalysisCache = semanticAnalysisCache;
     }
 
@@ -70,7 +70,7 @@ public class ChatService {
                 null
         ));
 
-        ChatRunner.AnalysisTurn analysisTurn = chatRunner.analyze(normalizedMessage, conversationId);
+        ChatAnalysisService.AnalysisTurn analysisTurn = chatAnalysisService.analyze(normalizedMessage, conversationId);
         executionSteps.addAll(analysisTurn.executionSteps());
         if (analysisTurn.cacheable()) {
             semanticAnalysisCache.store(normalizedMessage, analysisTurn.response());

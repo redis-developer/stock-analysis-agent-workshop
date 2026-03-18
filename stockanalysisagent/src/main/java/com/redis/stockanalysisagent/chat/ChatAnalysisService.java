@@ -6,17 +6,16 @@ import com.redis.stockanalysisagent.agent.coordinatoragent.RoutingDecision;
 import com.redis.stockanalysisagent.agent.orchestration.AgentExecution;
 import com.redis.stockanalysisagent.agent.orchestration.AgentExecutionStatus;
 import com.redis.stockanalysisagent.agent.orchestration.AgentOrchestrationService;
-import com.redis.stockanalysisagent.agent.orchestration.AgentType;
 import com.redis.stockanalysisagent.agent.orchestration.AnalysisRequest;
 import com.redis.stockanalysisagent.agent.orchestration.AnalysisResponse;
 import com.redis.stockanalysisagent.agent.orchestration.TokenUsageSummary;
-import org.springframework.stereotype.Component;
+import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.List;
 
-@Component
-class ChatRunner {
+@Service
+class ChatAnalysisService {
 
     private static final String KIND_AGENT = "agent";
     private static final String COORDINATOR = "COORDINATOR";
@@ -24,7 +23,7 @@ class ChatRunner {
     private final CoordinatorAgent coordinatorAgent;
     private final AgentOrchestrationService agentOrchestrationService;
 
-    ChatRunner(
+    ChatAnalysisService(
             CoordinatorAgent coordinatorAgent,
             AgentOrchestrationService agentOrchestrationService
     ) {
@@ -37,9 +36,8 @@ class ChatRunner {
         CoordinatorAgent.RoutingOutcome routingOutcome = coordinatorAgent.execute(request, conversationId);
         RoutingDecision routingDecision = routingOutcome.routingDecision();
         List<ChatExecutionStep> executionSteps = new ArrayList<>();
-        executionSteps.add(agentStep(
+        executionSteps.add(analysisStep(
                 COORDINATOR,
-                "Coordinator",
                 elapsedDurationMs(coordinatorStartedAt),
                 coordinatorSummary(routingDecision),
                 routingOutcome.tokenUsage()
@@ -100,57 +98,36 @@ class ChatRunner {
     }
 
     private ChatExecutionStep toExecutionStep(AgentExecution agentExecution) {
-        return agentStep(
+        return analysisStep(
                 agentExecution.agentType().name(),
-                formatAgentLabel(agentExecution.agentType()),
                 agentExecution.durationMs(),
                 agentExecution.summary(),
                 agentExecution.tokenUsage()
         );
     }
 
-    private ChatExecutionStep agentStep(
+    private ChatExecutionStep analysisStep(
             String id,
-            String label,
             long durationMs,
             String summary,
             TokenUsageSummary tokenUsage
     ) {
-        return new ChatExecutionStep(id, label, KIND_AGENT, durationMs, summary, tokenUsage);
+        return new ChatExecutionStep(id, null, KIND_AGENT, durationMs, summary, tokenUsage);
     }
 
     private String coordinatorSummary(RoutingDecision routingDecision) {
         return switch (routingDecision.getFinishReason()) {
             case COMPLETED -> {
-                List<String> routedAgents = routingDecision.getSelectedAgents() == null
-                        ? List.of()
-                        : routingDecision.getSelectedAgents().stream()
-                        .map(this::formatAgentLabel)
-                        .toList();
-                String routedAgentSummary = routedAgents.isEmpty()
-                        ? "Synthesis"
-                        : String.join(", ", routedAgents) + ", Synthesis";
-
                 String ticker = routingDecision.getResolvedTicker();
                 String reasoning = routingDecision.getReasoning();
                 String baseSummary = ticker == null
-                        ? "Routed the request to %s.".formatted(routedAgentSummary)
-                        : "Resolved %s and routed the request to %s.".formatted(ticker.toUpperCase(), routedAgentSummary);
+                        ? "Built the execution plan."
+                        : "Resolved %s and built the execution plan.".formatted(ticker.toUpperCase());
 
                 yield reasoning == null ? baseSummary : "%s Reasoning: %s".formatted(baseSummary, reasoning);
             }
             case NEEDS_MORE_INPUT -> routingDecision.getNextPrompt();
             case OUT_OF_SCOPE, CANNOT_PROCEED -> routingDecision.getFinalResponse();
-        };
-    }
-
-    private String formatAgentLabel(AgentType agentType) {
-        return switch (agentType) {
-            case MARKET_DATA -> "Market Data";
-            case FUNDAMENTALS -> "Fundamentals";
-            case NEWS -> "News";
-            case TECHNICAL_ANALYSIS -> "Technical Analysis";
-            case SYNTHESIS -> "Synthesis";
         };
     }
 
