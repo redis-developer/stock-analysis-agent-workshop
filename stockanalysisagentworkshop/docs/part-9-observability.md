@@ -179,6 +179,7 @@ The change is in `ChatAnalysisService.java`:
 +            CoordinatorAgent.RoutingOutcome outcome = coordinatorAgent.execute(request, conversationId);
 +            enrichWithRoutingDecision(observation, outcome.routingDecision());
 +            enrichWithTokenUsage(observation, outcome.tokenUsage());
++            observation.lowCardinalityKeyValue(KEY_SEMANTIC_CACHE_HIT, String.valueOf(outcome.fromSemanticCache()));
 +            return outcome;
 +        } catch (Throwable t) {
 +            observation.error(t);
@@ -199,6 +200,7 @@ start() -> execute -> enrich with results -> stop()
 
 - `start()` opens the span and starts the clock
 - Enrichment happens **after** execution but **before** stop
+- `KEY_SEMANTIC_CACHE_HIT` is a low-cardinality tag, so cache hit or miss can be filtered in Zipkin and metrics
 - `error(t)` records the exception so Zipkin marks the span red
 - `stop()` always runs in the finally block
 
@@ -216,11 +218,47 @@ orchestration.selected_agents    = [MARKET_DATA]
 orchestration.routing_reasoning  = The user has asked for the current price...
 orchestration.prompt_tokens      = 1000
 orchestration.completion_tokens  = 94
+orchestration.semantic_cache_hit = false
 ```
 
 Try an out-of-scope request like "Tell me a joke". The coordinator span shows `finish_reason=OUT_OF_SCOPE` and no agent spans appear.
 
-## 4. Wire Per-Agent Observations
+## 4. Add the Semantic Cache Execution Step
+
+Zipkin shows the embedding and LLM spans, but the chat response payload should also show whether the semantic cache hit or missed.
+
+In `ChatAnalysisService.java`, replace the Part 9 comment in `analyze(...)` with:
+
+```java
+executionSteps.add(cacheStep(routingOutcome.fromSemanticCache()));
+```
+
+Then replace the placeholder `cacheStep(...)` body with:
+
+```java
+return new ChatExecutionStep(
+        SEMANTIC_CACHE,
+        "Semantic cache",
+        KIND_SYSTEM,
+        0,
+        cacheHit
+                ? "Found a reusable response in the semantic cache and returned it through the coordinator."
+                : "Checked the semantic cache before coordinator routing and found no reusable response.",
+        null
+);
+```
+
+Why you did this:
+
+- the chat UI should make semantic cache hits visible without opening Zipkin
+- cache hit or miss is part of the request story, not just a background optimization
+
+What this code is doing:
+
+- it adds a system execution step before the coordinator step
+- it shows whether the semantic cache short-circuited the request or missed and allowed normal routing
+
+## 5. Wire Per-Agent Observations
 
 Each specialist agent method gets the same observation wrapper. The change is in `AgentOrchestrationService.java`:
 
@@ -274,16 +312,16 @@ Each agent now appears as its own `stock-analysis.agent` span:
 | `http post /api/chat` | 16.8s | Root — the HTTP request |
 | `embedding text-embedding-3-small` | 0.9s | Semantic cache check |
 | `stock-analysis.coordinator` | 3.9s | Routing decision (Step 3) |
-| `stock-analysis.agent` [MARKET_DATA] | 2.6s | Per-agent span (Step 4) |
+| `stock-analysis.agent` [MARKET_DATA] | 2.6s | Per-agent span (Step 5) |
 | `stock-analysis.agent` [NEWS] | 6.4s | Per-agent span |
 | `stock-analysis.agent` [TECHNICAL_ANALYSIS] | 2.8s | Per-agent span |
 | `stock-analysis.agent` [FUNDAMENTALS] | 5.8s | Per-agent span |
 | `chat gpt-4o` (synthesis) | 3.3s | Final synthesis LLM call |
 | `embedding text-embedding-3-small` | 0.2s | Semantic cache write |
 
-## 5. Reading a Real Trace
+## 6. Reading a Real Trace
 
-This is a full analysis of IBM, 16.8 seconds end to end. It starts with a semantic cache embedding check (854ms) — a cache miss, so we proceed. The coordinator takes 3.9 seconds and decides to dispatch all 4 agents with synthesis, spending 1,417 tokens on that routing decision. Then three agents — Market Data, News, and Technical Analysis — all kick off at exactly the same offset (+4.9s), which is why you see their bars overlapping in the waterfall: that's real parallelism, not a diagram. Market Data finishes in 2.6s, Technical Analysis in 2.8s, but News takes 6.4s — it's the bottleneck among the parallel group. Fundamentals starts *later* (+7.5s) because it depends on the Market Data result — you can see the gap. It then runs for 5.8 seconds including an SEC EDGAR lookup. Once all four agents complete, the Synthesis agent combines their outputs in a final 3.3s LLM call (873 tokens). The trace ends with a cache write embedding (170ms) so the next similar question gets a cache hit. Total cost across the whole request: roughly 8,400 tokens spread across 6 LLM calls, and you can see exactly which agent consumed what.
+This is a full analysis of IBM, 16.8 seconds end to end. It starts with a semantic cache embedding check (854ms) — a cache miss, so we proceed into the coordinator flow. The coordinator takes 3.9 seconds and decides to dispatch all 4 agents with synthesis, spending 1,417 tokens on that routing decision. Then three agents — Market Data, News, and Technical Analysis — all kick off at exactly the same offset (+4.9s), which is why you see their bars overlapping in the waterfall: that's real parallelism, not a diagram. Market Data finishes in 2.6s, Technical Analysis in 2.8s, but News takes 6.4s — it's the bottleneck among the parallel group. Fundamentals starts *later* (+7.5s) because it depends on the Market Data result — you can see the gap. It then runs for 5.8 seconds including an SEC EDGAR lookup. Once all four agents complete, the Synthesis agent combines their outputs in a final 3.3s LLM call (873 tokens). The trace ends with a cache write embedding (170ms) so the next similar question gets a cache hit. On a cache hit, the advisor would return before long-term memory retrieval or coordinator routing. Total cost across the whole request: roughly 8,400 tokens spread across 6 LLM calls, and you can see exactly which agent consumed what.
 
 ## Navigating the Zipkin UI
 
@@ -293,13 +331,14 @@ This is a full analysis of IBM, 16.8 seconds end to end. It starts with a semant
 4. **Tags panel**: All orchestration metadata is here — ticker, agents, tokens, reasoning, status.
 5. **Filter by agent type**: Add a tag filter `orchestration.agent_type=NEWS` to show only traces where the News agent ran.
 
-## What You Should Be Comfortable With After Part 6
+## What You Should Be Comfortable With After Part 9
 
 Before moving on, make sure these ideas feel clear:
 
 - Spring AI auto-instruments LLM and tool calls, but not orchestration decisions
 - Micrometer's `Observation` API lets you add custom spans alongside the auto-instrumented ones
 - Low cardinality attributes are filterable (agent type, status, finish reason)
+- Semantic cache hit or miss can be surfaced both in Zipkin tags and in the chat execution steps
 - High cardinality attributes carry diagnostic detail (ticker, reasoning, token counts)
 - The pattern is always: `start()` -> execute -> enrich -> `stop()` (with `error(t)` in the catch)
 - The Zipkin waterfall shows the full request lifecycle — coordinator routing, agent execution, LLM calls, tool calls, cache operations — all in one view

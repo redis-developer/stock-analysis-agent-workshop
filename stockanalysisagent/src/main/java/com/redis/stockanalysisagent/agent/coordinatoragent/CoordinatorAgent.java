@@ -42,7 +42,7 @@ public class CoordinatorAgent {
         if (routingDecision.getFinishReason() == RoutingDecision.FinishReason.NEEDS_MORE_INPUT) {
             routingDecision.setConversationId(conversationId);
         }
-        return new RoutingOutcome(routingDecision, routingResult.tokenUsage());
+        return new RoutingOutcome(routingDecision, routingResult.tokenUsage(), routingResult.cacheHit());
     }
 
     public AnalysisRequest toAnalysisRequest(RoutingDecision routingDecision) {
@@ -62,7 +62,8 @@ public class CoordinatorAgent {
 
     public record RoutingOutcome(
             RoutingDecision routingDecision,
-            TokenUsageSummary tokenUsage
+            TokenUsageSummary tokenUsage,
+            boolean cacheHit
     ) {
     }
 }

@@ -9,6 +9,7 @@ public class RoutingDecision {
 
     public enum FinishReason {
         NEEDS_MORE_INPUT,
+        DIRECT_RESPONSE,
         COMPLETED,
         CANNOT_PROCEED,
         OUT_OF_SCOPE

@@ -26,6 +26,8 @@ Under the hood, it uses:
 - Redis-backed memory and caching
 - observability and evaluation support
 
+Semantic cache hits can short circuit the coordinator flow before long-term memory retrieval runs.
+
 So when you ask a question like:
 
 - "What's going on with Apple right now?"

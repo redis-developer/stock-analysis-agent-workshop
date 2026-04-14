@@ -38,6 +38,7 @@ By working through this repository, you will learn how to build a multi-agent ap
 - synthesize a grounded final answer
 - preserve conversation memory
 - cache expensive or repeated work
+- use advisor-based semantic caching for near-duplicate requests
 - emit useful traces for observability
 - evaluate answer quality with Spring AI
 
@@ -80,7 +81,7 @@ final answer
 As the repository progresses, that core flow is extended with:
 
 - Redis-backed memory
-- semantic caching
+- advisor-based semantic caching
 - observability
 - evaluation
 

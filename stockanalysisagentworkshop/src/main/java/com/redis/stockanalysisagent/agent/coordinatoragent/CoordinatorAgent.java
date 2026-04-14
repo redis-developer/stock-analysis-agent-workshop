@@ -20,21 +20,32 @@ public class CoordinatorAgent {
     }
 
     public ExecutionPlan createPlan(RoutingDecision routingDecision) {
-        // PART 4 STEP 3A:
-        // Replace this method body with the snippet from the Part 4 guide.
-        throw new UnsupportedOperationException("Part 4: implement createPlan(...)");
+        List<AgentType> selectedAgents = new ArrayList<>(new LinkedHashSet<>(selectedSpecialists(routingDecision.getSelectedAgents())));
+        if (selectedAgents.isEmpty()) {
+            throw new IllegalStateException("Coordinator returned no specialist agents.");
+        }
+        selectedAgents.add(AgentType.SYNTHESIS);
+
+        return new ExecutionPlan(
+                List.copyOf(selectedAgents),
+                routingDecision.getReasoning()
+        );
     }
 
     public RoutingOutcome execute(String userMessage, String conversationId) {
-        // PART 4 STEP 3B:
-        // Replace this method body with the snippet from the Part 4 guide.
-        throw new UnsupportedOperationException("Part 4: implement execute(...)");
+        CoordinatorRoutingAgent.RoutingResult routingResult = coordinatorRoutingAgent.route(userMessage, conversationId);
+        RoutingDecision routingDecision = routingResult.routingDecision();
+        if (routingDecision.getFinishReason() == RoutingDecision.FinishReason.NEEDS_MORE_INPUT) {
+            routingDecision.setConversationId(conversationId);
+        }
+        return new RoutingOutcome(routingDecision, routingResult.tokenUsage(), routingResult.fromSemanticCache());
     }
 
     public AnalysisRequest toAnalysisRequest(RoutingDecision routingDecision) {
-        // PART 4 STEP 3C:
-        // Replace this method body with the snippet from the Part 4 guide.
-        throw new UnsupportedOperationException("Part 4: implement toAnalysisRequest(...)");
+        return new AnalysisRequest(
+                routingDecision.getResolvedTicker().trim().toUpperCase(),
+                routingDecision.getResolvedQuestion().trim()
+        );
     }
 
     private List<AgentType> selectedSpecialists(List<AgentType> selectedAgents) {
@@ -47,7 +58,8 @@ public class CoordinatorAgent {
 
     public record RoutingOutcome(
             RoutingDecision routingDecision,
-            TokenUsageSummary tokenUsage
+            TokenUsageSummary tokenUsage,
+            boolean fromSemanticCache
     ) {
     }
 }

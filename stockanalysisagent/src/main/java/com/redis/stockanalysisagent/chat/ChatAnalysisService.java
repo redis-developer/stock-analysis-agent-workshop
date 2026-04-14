@@ -8,6 +8,7 @@ import com.redis.stockanalysisagent.agent.orchestration.AgentOrchestrationServic
 import com.redis.stockanalysisagent.agent.orchestration.AnalysisRequest;
 import com.redis.stockanalysisagent.agent.orchestration.AnalysisResponse;
 import com.redis.stockanalysisagent.agent.orchestration.TokenUsageSummary;
+import com.redis.stockanalysisagent.semanticcache.SemanticAnalysisCache;
 import io.micrometer.observation.Observation;
 import io.micrometer.observation.ObservationRegistry;
 import org.springframework.stereotype.Service;
@@ -21,20 +22,25 @@ import static com.redis.stockanalysisagent.observability.OrchestrationObservabil
 class ChatAnalysisService {
 
     private static final String KIND_AGENT = "agent";
+    private static final String KIND_SYSTEM = "system";
     private static final String COORDINATOR = "COORDINATOR";
+    private static final String SEMANTIC_CACHE = "SEMANTIC_CACHE";
 
     private final CoordinatorAgent coordinatorAgent;
     private final AgentOrchestrationService agentOrchestrationService;
     private final ObservationRegistry observationRegistry;
+    private final SemanticAnalysisCache semanticAnalysisCache;
 
     ChatAnalysisService(
             CoordinatorAgent coordinatorAgent,
             AgentOrchestrationService agentOrchestrationService,
-            ObservationRegistry observationRegistry
+            ObservationRegistry observationRegistry,
+            SemanticAnalysisCache semanticAnalysisCache
     ) {
         this.coordinatorAgent = coordinatorAgent;
         this.agentOrchestrationService = agentOrchestrationService;
         this.observationRegistry = observationRegistry;
+        this.semanticAnalysisCache = semanticAnalysisCache;
     }
 
     AnalysisTurn analyze(String request, String conversationId, Integer retrievedMemoriesLimit) {
@@ -46,6 +52,7 @@ class ChatAnalysisService {
         );
         RoutingDecision routingDecision = routingOutcome.routingDecision();
         List<ChatExecutionStep> executionSteps = new ArrayList<>();
+        executionSteps.add(cacheStep(routingOutcome.cacheHit()));
         executionSteps.add(analysisStep(
                 COORDINATOR,
                 elapsedDurationMs(coordinatorStartedAt),
@@ -57,7 +64,7 @@ class ChatAnalysisService {
             return new AnalysisTurn(
                     routingDecision.getNextPrompt(),
                     List.copyOf(executionSteps),
-                    false,
+                    routingOutcome.cacheHit(),
                     TokenUsageSummary.sum(executionSteps.stream().map(ChatExecutionStep::tokenUsage).toList())
             );
         }
@@ -66,7 +73,7 @@ class ChatAnalysisService {
             return new AnalysisTurn(
                     resolveCoordinatorMessage(routingDecision),
                     List.copyOf(executionSteps),
-                    false,
+                    routingOutcome.cacheHit(),
                     TokenUsageSummary.sum(executionSteps.stream().map(ChatExecutionStep::tokenUsage).toList())
             );
         }
@@ -75,7 +82,7 @@ class ChatAnalysisService {
             return new AnalysisTurn(
                     resolveCoordinatorMessage(routingDecision),
                     List.copyOf(executionSteps),
-                    false,
+                    routingOutcome.cacheHit(),
                     TokenUsageSummary.sum(executionSteps.stream().map(ChatExecutionStep::tokenUsage).toList())
             );
         }
@@ -84,11 +91,12 @@ class ChatAnalysisService {
         ExecutionPlan executionPlan = coordinatorAgent.createPlan(routingDecision);
         AnalysisResponse response = agentOrchestrationService.processRequest(analysisRequest, executionPlan);
         executionSteps.addAll(extractExecutionSteps(response));
+        semanticAnalysisCache.storeResponse(request, response.answer());
 
         return new AnalysisTurn(
                 response.answer(),
                 List.copyOf(executionSteps),
-                true,
+                false,
                 TokenUsageSummary.sum(executionSteps.stream().map(ChatExecutionStep::tokenUsage).toList())
         );
     }
@@ -109,6 +117,9 @@ class ChatAnalysisService {
             );
             enrichWithRoutingDecision(observation, outcome.routingDecision());
             enrichWithTokenUsage(observation, outcome.tokenUsage());
+            if (outcome.cacheHit()) {
+                observation.lowCardinalityKeyValue(KEY_SEMANTIC_CACHE_HIT, "true");
+            }
             return outcome;
         } catch (Throwable t) {
             observation.error(t);
@@ -158,6 +169,19 @@ class ChatAnalysisService {
         return new ChatExecutionStep(id, null, KIND_AGENT, durationMs, summary, tokenUsage);
     }
 
+    private ChatExecutionStep cacheStep(boolean cacheHit) {
+        return new ChatExecutionStep(
+                SEMANTIC_CACHE,
+                "Semantic cache",
+                KIND_SYSTEM,
+                0,
+                cacheHit
+                        ? "Found a reusable response in the semantic cache and returned it through the coordinator."
+                        : "Checked the semantic cache before coordinator routing and found no reusable response.",
+                null
+        );
+    }
+
     private String coordinatorSummary(RoutingDecision routingDecision) {
         return switch (routingDecision.getFinishReason()) {
             case COMPLETED -> {
@@ -182,7 +206,7 @@ class ChatAnalysisService {
     record AnalysisTurn(
             String response,
             List<ChatExecutionStep> executionSteps,
-            boolean cacheable,
+            boolean fromSemanticCache,
             TokenUsageSummary tokenUsage
     ) {
     }

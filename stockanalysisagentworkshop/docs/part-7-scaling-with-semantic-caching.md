@@ -244,9 +244,9 @@ So semantic caching is:
 
 ## Where Semantic Caching Fits in This App
 
-In this application, semantic caching sits at the chat boundary.
+In this application, semantic caching sits in an advisor before coordinator routing and long-term memory retrieval.
 
-It happens before the full multi-agent pipeline runs.
+It gives the app an early exit for near-duplicate requests.
 
 Conceptually, the flow looks like this:
 
@@ -254,11 +254,11 @@ Conceptually, the flow looks like this:
 User message
     |
     v
-Semantic cache check
+Semantic cache advisor
     |
-    +--> hit -> return cached final answer
+    +--> hit -> return cached final answer and stop
     |
-    +--> miss -> run coordinator + agents + synthesis
+    +--> miss -> run long-term memory retrieval, then coordinator + agents + synthesis
                      |
                      v
                  store final answer in semantic cache
@@ -307,6 +307,7 @@ Examples:
 
 Without semantic caching, each one of those requests would still trigger:
 
+- long-term memory retrieval
 - coordinator
 - specialist agents
 - synthesis
@@ -378,11 +379,14 @@ Once both layers exist, the request path looks like this:
 User message
     |
     v
-Semantic cache check
+Semantic cache advisor
     |
     +--> hit -> return final answer
     |
     +--> miss
+            |
+            v
+        Long-term memory advisor
             |
             v
         Coordinator

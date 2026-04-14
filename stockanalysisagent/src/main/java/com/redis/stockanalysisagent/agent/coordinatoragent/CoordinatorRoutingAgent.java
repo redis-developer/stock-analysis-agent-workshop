@@ -2,6 +2,7 @@ package com.redis.stockanalysisagent.agent.coordinatoragent;
 
 import com.redis.stockanalysisagent.agent.orchestration.TokenUsageSummary;
 import com.redis.stockanalysisagent.memory.LongTermMemoryAdvisor;
+import com.redis.stockanalysisagent.semanticcache.SemanticCacheAdvisor;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.client.ResponseEntity;
 import org.springframework.ai.chat.model.ChatResponse;
@@ -31,12 +32,20 @@ public class CoordinatorRoutingAgent {
                 .responseEntity(RoutingDecision.class);
 
         RoutingDecision decision = response.entity();
-        return new RoutingResult(decision, TokenUsageSummary.from(response.response()));
+        if (decision == null) {
+            throw new IllegalStateException("Coordinator returned no routing decision.");
+        }
+
+        ChatResponse chatResponse = response.response();
+        boolean cacheHit = chatResponse != null
+                && Boolean.TRUE.equals(chatResponse.getMetadata().getOrDefault(SemanticCacheAdvisor.CACHE_HIT, false));
+        return new RoutingResult(decision, TokenUsageSummary.from(chatResponse), cacheHit);
     }
 
     public record RoutingResult(
             RoutingDecision routingDecision,
-            TokenUsageSummary tokenUsage
+            TokenUsageSummary tokenUsage,
+            boolean cacheHit
     ) {
     }
 }

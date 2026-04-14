@@ -2,7 +2,6 @@ package com.redis.stockanalysisagent.chat;
 
 import com.redis.stockanalysisagent.agent.orchestration.TokenUsageSummary;
 import com.redis.stockanalysisagent.memory.AmsChatMemoryRepository;
-import com.redis.stockanalysisagent.semanticcache.SemanticAnalysisCache;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.memory.ChatMemory;
@@ -18,63 +17,28 @@ public class ChatService {
 
     private static final Logger log = LoggerFactory.getLogger(ChatService.class);
     private static final String KIND_SYSTEM = "system";
-    private static final String SEMANTIC_CACHE = "SEMANTIC_CACHE";
 
     private final ChatMemory chatMemory;
     private final AmsChatMemoryRepository memoryRepository;
     private final ChatAnalysisService chatAnalysisService;
-    private final SemanticAnalysisCache semanticAnalysisCache;
 
     public ChatService(
             ChatMemory chatMemory,
             AmsChatMemoryRepository memoryRepository,
-            ChatAnalysisService chatAnalysisService,
-            SemanticAnalysisCache semanticAnalysisCache
+            ChatAnalysisService chatAnalysisService
     ) {
         this.chatMemory = chatMemory;
         this.memoryRepository = memoryRepository;
         this.chatAnalysisService = chatAnalysisService;
-        this.semanticAnalysisCache = semanticAnalysisCache;
     }
 
     public ChatTurn chat(String userId, String sessionId, String message) {
         String conversationId = AmsChatMemoryRepository.createConversationId(userId, sessionId);
         String normalizedMessage = message == null ? "" : message.trim();
-        List<ChatExecutionStep> executionSteps = new ArrayList<>();
-
-        long semanticCacheStartedAt = System.nanoTime();
-        java.util.Optional<String> cachedResponse = semanticAnalysisCache.findAnswer(normalizedMessage);
-        long semanticCacheDurationMs = elapsedDurationMs(semanticCacheStartedAt);
-        if (cachedResponse.isPresent()) {
-            memoryRepository.setLastRetrievedMemories(List.of());
-            return new ChatTurn(
-                    conversationId,
-                    cachedResponse.get(),
-                    List.of(),
-                    true,
-                    null,
-                    List.of(systemStep(
-                            SEMANTIC_CACHE,
-                            "Semantic cache",
-                            semanticCacheDurationMs,
-                            "Found a reusable response in the semantic cache and returned it directly.",
-                            null
-                    ))
-            );
-        }
-        executionSteps.add(systemStep(
-                SEMANTIC_CACHE,
-                "Semantic cache",
-                semanticCacheDurationMs,
-                "Checked the semantic cache and found no reusable response.",
-                null
-        ));
+        memoryRepository.setLastRetrievedMemories(List.of());
 
         ChatAnalysisService.AnalysisTurn analysisTurn = chatAnalysisService.analyze(normalizedMessage, conversationId);
-        executionSteps.addAll(analysisTurn.executionSteps());
-        if (analysisTurn.cacheable()) {
-            semanticAnalysisCache.store(normalizedMessage, analysisTurn.response());
-        }
+        List<ChatExecutionStep> executionSteps = new ArrayList<>(analysisTurn.executionSteps());
 
         long saveTurnStartedAt = System.nanoTime();
         boolean saveSucceeded = saveTurn(conversationId, normalizedMessage, analysisTurn.response());
@@ -90,7 +54,7 @@ public class ChatService {
                 conversationId,
                 analysisTurn.response(),
                 memoryRepository.getLastRetrievedMemories(),
-                false,
+                analysisTurn.fromSemanticCache(),
                 analysisTurn.tokenUsage(),
                 List.copyOf(executionSteps)
         );

@@ -118,7 +118,7 @@ That means some parts of the system are already implemented for you, while selec
   Build the `ChatMemoryRepository` and advisor integration that bring working memory and long-term memory into the app.
 
 - [Part 7: Scaling with Semantic Caching](/Users/raphaeldelio/Documents/GitHub/stock-analysis-agent/stockanalysisagentworkshop/docs/part-7-scaling-with-semantic-caching.md)
-  Learn how caching and semantic caching make the system faster and cheaper.
+  Learn how advisor-based semantic caching can short circuit repeated requests before the coordinator flow continues.
 
 - [Part 8: Building Semantic Caching](/Users/raphaeldelio/Documents/GitHub/stock-analysis-agent/stockanalysisagentworkshop/docs/part-8-building-semantic-caching.md)
   Build the Redis-backed cache layers used by the application.

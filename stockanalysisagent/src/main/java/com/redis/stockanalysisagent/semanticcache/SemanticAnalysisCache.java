@@ -2,6 +2,8 @@ package com.redis.stockanalysisagent.semanticcache;
 
 import com.redis.vl.extensions.cache.SemanticCache;
 import com.redis.vl.index.SearchIndex;
+import com.redis.vl.schema.IndexSchema;
+import com.redis.vl.schema.VectorField;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.embedding.EmbeddingModel;
@@ -9,7 +11,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import redis.clients.jedis.UnifiedJedis;
 
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -46,7 +47,7 @@ public class SemanticAnalysisCache {
                 .build();
     }
 
-    public Optional<String> findAnswer(String request) {
+    public Optional<String> findResponse(String request) {
         return semanticCache.check(request)
                 .map(cacheHit -> {
                     log.info("Semantic cache hit for request at distance {}", cacheHit.getDistance());
@@ -54,7 +55,7 @@ public class SemanticAnalysisCache {
                 });
     }
 
-    public void store(String request, String response) {
+    public void storeResponse(String request, String response) {
         semanticCache.store(
                 request,
                 response,
@@ -63,35 +64,39 @@ public class SemanticAnalysisCache {
         log.info("Semantic cache stored response for request.");
     }
 
+    public Optional<String> findAnswer(String request) {
+        return findResponse(request);
+    }
+
+    public void store(String request, String response) {
+        storeResponse(request, response);
+    }
+
     private SearchIndex createIndex(SemanticCacheProperties properties, UnifiedJedis redisClient) {
-        return SearchIndex.fromDict(
-                Map.of(
-                        "index", Map.of(
-                                "name", properties.getName(),
-                                "prefix", "cache:" + properties.getName() + ":",
-                                "storage_type", "hash"
-                        ),
-                        "fields", List.of(
-                                Map.of("name", "prompt", "type", "text"),
-                                Map.of("name", "response", "type", "text"),
-                                Map.of(
-                                        "name", "prompt_vector",
-                                        "type", "vector",
-                                        "attrs", Map.of(
-                                                "dims", properties.getEmbeddingDimensions(),
-                                                "algorithm", "flat",
-                                                "distance_metric", "cosine"
-                                        )
-                                ),
-                                Map.of("name", "inserted_at", "type", "numeric"),
-                                Map.of("name", "updated_at", "type", "numeric"),
-                                Map.of("name", "user", "type", "tag"),
-                                Map.of("name", "session", "type", "tag"),
-                                Map.of("name", "category", "type", "tag")
-                        )
-                ),
-                redisClient
-        );
+        IndexSchema schema = IndexSchema.builder()
+                .name(properties.getName())
+                .prefix("cache:" + properties.getName() + ":")
+                .storageType(IndexSchema.StorageType.HASH)
+                .addTextField("prompt", field -> {
+                })
+                .addTextField("response", field -> {
+                })
+                .addVectorField("prompt_vector", properties.getEmbeddingDimensions(), field -> field
+                        .algorithm(redis.clients.jedis.search.schemafields.VectorField.VectorAlgorithm.FLAT)
+                        .distanceMetric(VectorField.DistanceMetric.COSINE))
+                .addNumericField("inserted_at", field -> {
+                })
+                .addNumericField("updated_at", field -> {
+                })
+                .addTagField("user", field -> {
+                })
+                .addTagField("session", field -> {
+                })
+                .addTagField("category", field -> {
+                })
+                .build();
+
+        return new SearchIndex(schema, redisClient);
     }
 
     private void ensureIndexExists() {
