@@ -51,6 +51,7 @@ public class ChatController {
                 turn.response(),
                 turn.retrievedMemories(),
                 turn.fromSemanticCache(),
+                turn.fromSemanticGuardrail(),
                 turn.tokenUsage(),
                 turn.executionSteps(),
                 responseTimeMs

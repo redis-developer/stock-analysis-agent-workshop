@@ -24,6 +24,7 @@ class ChatAnalysisService {
     private static final String KIND_AGENT = "agent";
     private static final String KIND_SYSTEM = "system";
     private static final String COORDINATOR = "COORDINATOR";
+    private static final String SEMANTIC_GUARDRAIL = "SEMANTIC_GUARDRAIL";
     private static final String SEMANTIC_CACHE = "SEMANTIC_CACHE";
 
     private final CoordinatorAgent coordinatorAgent;
@@ -52,7 +53,8 @@ class ChatAnalysisService {
         );
         RoutingDecision routingDecision = routingOutcome.routingDecision();
         List<ChatExecutionStep> executionSteps = new ArrayList<>();
-        executionSteps.add(cacheStep(routingOutcome.cacheHit()));
+        executionSteps.add(guardrailStep(routingOutcome.guardrailHit(), routingOutcome.guardrailRoute()));
+        executionSteps.add(cacheStep(routingOutcome.cacheHit(), routingOutcome.guardrailHit()));
         executionSteps.add(analysisStep(
                 COORDINATOR,
                 elapsedDurationMs(coordinatorStartedAt),
@@ -65,6 +67,7 @@ class ChatAnalysisService {
                     routingDecision.getNextPrompt(),
                     List.copyOf(executionSteps),
                     routingOutcome.cacheHit(),
+                    routingOutcome.guardrailHit(),
                     TokenUsageSummary.sum(executionSteps.stream().map(ChatExecutionStep::tokenUsage).toList())
             );
         }
@@ -74,6 +77,7 @@ class ChatAnalysisService {
                     resolveCoordinatorMessage(routingDecision),
                     List.copyOf(executionSteps),
                     routingOutcome.cacheHit(),
+                    routingOutcome.guardrailHit(),
                     TokenUsageSummary.sum(executionSteps.stream().map(ChatExecutionStep::tokenUsage).toList())
             );
         }
@@ -83,6 +87,7 @@ class ChatAnalysisService {
                     resolveCoordinatorMessage(routingDecision),
                     List.copyOf(executionSteps),
                     routingOutcome.cacheHit(),
+                    routingOutcome.guardrailHit(),
                     TokenUsageSummary.sum(executionSteps.stream().map(ChatExecutionStep::tokenUsage).toList())
             );
         }
@@ -96,6 +101,7 @@ class ChatAnalysisService {
         return new AnalysisTurn(
                 response.answer(),
                 List.copyOf(executionSteps),
+                false,
                 false,
                 TokenUsageSummary.sum(executionSteps.stream().map(ChatExecutionStep::tokenUsage).toList())
         );
@@ -169,17 +175,42 @@ class ChatAnalysisService {
         return new ChatExecutionStep(id, null, KIND_AGENT, durationMs, summary, tokenUsage);
     }
 
-    private ChatExecutionStep cacheStep(boolean cacheHit) {
+    private ChatExecutionStep guardrailStep(boolean guardrailHit, String guardrailRoute) {
+        return new ChatExecutionStep(
+                SEMANTIC_GUARDRAIL,
+                "Semantic guardrail",
+                KIND_SYSTEM,
+                0,
+                guardrailHit
+                        ? "Blocked the request with the `%s` semantic guardrail before any LLM call.".formatted(
+                        formatGuardrailRoute(guardrailRoute)
+                )
+                        : "Checked the semantic guardrail before semantic cache and allowed the request to continue.",
+                null
+        );
+    }
+
+    private ChatExecutionStep cacheStep(boolean cacheHit, boolean guardrailHit) {
         return new ChatExecutionStep(
                 SEMANTIC_CACHE,
                 "Semantic cache",
                 KIND_SYSTEM,
                 0,
-                cacheHit
+                guardrailHit
+                        ? "Skipped semantic cache because the semantic guardrail already blocked the request."
+                        : cacheHit
                         ? "Found a reusable response in the semantic cache and returned it through the coordinator."
                         : "Checked the semantic cache before coordinator routing and found no reusable response.",
                 null
         );
+    }
+
+    private String formatGuardrailRoute(String guardrailRoute) {
+        if (guardrailRoute == null || guardrailRoute.isBlank()) {
+            return "blocked_route";
+        }
+
+        return guardrailRoute;
     }
 
     private String coordinatorSummary(RoutingDecision routingDecision) {
@@ -207,6 +238,7 @@ class ChatAnalysisService {
             String response,
             List<ChatExecutionStep> executionSteps,
             boolean fromSemanticCache,
+            boolean fromSemanticGuardrail,
             TokenUsageSummary tokenUsage
     ) {
     }

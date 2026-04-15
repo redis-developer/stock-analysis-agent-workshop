@@ -665,6 +665,12 @@ body::before {
     color: var(--color-success);
 }
 
+.badge--guardrail {
+    background: rgba(251, 191, 36, 0.12);
+    border-color: rgba(251, 191, 36, 0.26);
+    color: var(--color-warning);
+}
+
 .badge--timing {
     background: rgba(148, 163, 184, 0.12);
     border-color: rgba(148, 163, 184, 0.26);

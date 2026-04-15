@@ -60,6 +60,7 @@ public class ChatService {
                 analysisTurn.response(),
                 memoryRepository.getLastRetrievedMemories(),
                 analysisTurn.fromSemanticCache(),
+                analysisTurn.fromSemanticGuardrail(),
                 analysisTurn.tokenUsage(),
                 List.copyOf(executionSteps)
         );
@@ -109,6 +110,7 @@ public class ChatService {
             String response,
             List<String> retrievedMemories,
             boolean fromSemanticCache,
+            boolean fromSemanticGuardrail,
             TokenUsageSummary tokenUsage,
             List<ChatExecutionStep> executionSteps
     ) {

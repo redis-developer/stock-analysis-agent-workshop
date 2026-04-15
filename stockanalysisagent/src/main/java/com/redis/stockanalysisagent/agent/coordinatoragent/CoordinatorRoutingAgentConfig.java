@@ -2,6 +2,7 @@ package com.redis.stockanalysisagent.agent.coordinatoragent;
 
 import com.redis.stockanalysisagent.memory.LongTermMemoryAdvisor;
 import com.redis.stockanalysisagent.semanticcache.SemanticCacheAdvisor;
+import com.redis.stockanalysisagent.semanticguardrail.SemanticGuardrailAdvisor;
 import org.springframework.ai.chat.client.AdvisorParams;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.client.advisor.MessageChatMemoryAdvisor;
@@ -74,11 +75,13 @@ public class CoordinatorRoutingAgentConfig {
     public ChatClient coordinatorChatClient(
             ChatModel chatModel,
             ChatMemory chatMemory,
+            SemanticGuardrailAdvisor semanticGuardrailAdvisor,
             SemanticCacheAdvisor semanticCacheAdvisor,
             LongTermMemoryAdvisor longTermMemoryAdvisor
     ) {
         return ChatClient.builder(chatModel)
                 .defaultAdvisors(MessageChatMemoryAdvisor.builder(chatMemory).build())
+                .defaultAdvisors(semanticGuardrailAdvisor)
                 .defaultAdvisors(semanticCacheAdvisor)
                 .defaultAdvisors(longTermMemoryAdvisor)
                 .defaultAdvisors(AdvisorParams.ENABLE_NATIVE_STRUCTURED_OUTPUT)

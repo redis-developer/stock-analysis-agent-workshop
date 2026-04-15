@@ -118,6 +118,7 @@
                 timestamp: new Date().toISOString(),
                 memories: response.retrievedMemories || [],
                 fromSemanticCache: Boolean(response.fromSemanticCache),
+                fromSemanticGuardrail: Boolean(response.fromSemanticGuardrail),
                 tokenUsage: normalizeTokenUsage(response.tokenUsage),
                 executionSteps: Array.isArray(response.executionSteps) ? response.executionSteps : [],
                 responseTimeMs: Number.isFinite(response.responseTimeMs) ? response.responseTimeMs : null
@@ -343,9 +344,16 @@
         meta.className = "message__meta";
 
         const tokenUsage = resolveTokenUsage(message);
-        if (message.fromSemanticCache || message.responseTimeMs != null || tokenUsage) {
+        if (message.fromSemanticGuardrail || message.fromSemanticCache || message.responseTimeMs != null || tokenUsage) {
             const badges = document.createElement("div");
             badges.className = "message__badges";
+
+            if (message.fromSemanticGuardrail) {
+                const guardrailBadge = document.createElement("span");
+                guardrailBadge.className = "badge badge--guardrail";
+                guardrailBadge.textContent = "Blocked by guardrail";
+                badges.appendChild(guardrailBadge);
+            }
 
             if (message.fromSemanticCache) {
                 const cacheBadge = document.createElement("span");
