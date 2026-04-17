@@ -6,6 +6,8 @@ import com.redis.stockanalysisagent.agent.newsagent.NewsSnapshot;
 import com.redis.stockanalysisagent.agent.orchestration.AnalysisRequest;
 import com.redis.stockanalysisagent.agent.orchestration.TokenUsageSummary;
 import com.redis.stockanalysisagent.agent.technicalanalysisagent.TechnicalAnalysisSnapshot;
+import com.redis.stockanalysisagent.semanticcache.SemanticCacheAdvisor;
+import com.redis.stockanalysisagent.semanticcache.SemanticCacheStoreAdvisor;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.client.ResponseEntity;
 import org.springframework.ai.chat.model.ChatResponse;
@@ -31,12 +33,19 @@ public class SynthesisAgent {
         ResponseEntity<ChatResponse, SynthesisResponse> response = synthesisChatClient
                 .prompt()
                 .user(buildPrompt(request, marketSnapshot, fundamentalsSnapshot, newsSnapshot, technicalAnalysisSnapshot))
+                .advisors(spec -> spec.param(SemanticCacheAdvisor.CACHE_KEY, request.semanticCacheKey()))
                 .call()
                 .responseEntity(SynthesisResponse.class);
+        boolean semanticCacheStored = response.response() != null
+                && Boolean.TRUE.equals(response.response().getMetadata().getOrDefault(
+                SemanticCacheStoreAdvisor.CACHE_STORED,
+                false
+        ));
 
         return new SynthesisResult(
                 response.entity().finalAnswer().trim(),
-                TokenUsageSummary.from(response.response())
+                TokenUsageSummary.from(response.response()),
+                semanticCacheStored
         );
     }
 

@@ -20,7 +20,12 @@ public class CoordinatorRoutingAgent {
         this.coordinatorChatClient = coordinatorChatClient;
     }
 
-    public RoutingResult route(String userMessage, String conversationId, Integer retrievedMemoriesLimit) {
+    public RoutingResult route(
+            String userMessage,
+            String conversationId,
+            Integer retrievedMemoriesLimit,
+            String semanticCacheKey
+    ) {
         ResponseEntity<ChatResponse, RoutingDecision> response = coordinatorChatClient
                 .prompt()
                 .user(userMessage)
@@ -28,6 +33,7 @@ public class CoordinatorRoutingAgent {
                     spec.param(org.springframework.ai.chat.memory.ChatMemory.CONVERSATION_ID, conversationId);
                     spec.param(LongTermMemoryAdvisor.MAX_RETRIEVED_MEMORIES,
                             retrievedMemoriesLimit != null ? retrievedMemoriesLimit : LongTermMemoryAdvisor.DEFAULT_MAX_MEMORIES);
+                    spec.param(SemanticCacheAdvisor.CACHE_KEY, semanticCacheKey);
                 })
                 .call()
                 .responseEntity(RoutingDecision.class);

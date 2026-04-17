@@ -48,20 +48,11 @@ public class SemanticAnalysisCache {
     }
 
     public Optional<String> findResponse(String request) {
-        return semanticCache.check(request)
-                .map(cacheHit -> {
-                    log.info("Semantic cache hit for request at distance {}", cacheHit.getDistance());
-                    return cacheHit.getResponse();
-                });
+        return findCachedResponse(request);
     }
 
     public void storeResponse(String request, String response) {
-        semanticCache.store(
-                request,
-                response,
-                Map.of("kind", "stock-analysis")
-        );
-        log.info("Semantic cache stored response for request.");
+        storeFinalResponse(request, response);
     }
 
     public Optional<String> findAnswer(String request) {
@@ -70,6 +61,23 @@ public class SemanticAnalysisCache {
 
     public void store(String request, String response) {
         storeResponse(request, response);
+    }
+
+    public Optional<String> findCachedResponse(String request) {
+        return semanticCache.check(request)
+                .map(cacheHit -> {
+                    log.info("Semantic cache hit for request at distance {}", cacheHit.getDistance());
+                    return cacheHit.getResponse();
+                });
+    }
+
+    public void storeFinalResponse(String request, String response) {
+        semanticCache.store(
+                request,
+                response,
+                Map.of("kind", "stock-analysis")
+        );
+        log.info("Semantic cache stored response for request.");
     }
 
     private SearchIndex createIndex(SemanticCacheProperties properties, UnifiedJedis redisClient) {

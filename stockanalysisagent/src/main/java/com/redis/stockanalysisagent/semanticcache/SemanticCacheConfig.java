@@ -10,4 +10,9 @@ public class SemanticCacheConfig {
     public SemanticCacheAdvisor semanticCacheAdvisor(SemanticAnalysisCache semanticAnalysisCache) {
         return new SemanticCacheAdvisor(semanticAnalysisCache);
     }
+
+    @Bean
+    public SemanticCacheStoreAdvisor semanticCacheStoreAdvisor(SemanticAnalysisCache semanticAnalysisCache) {
+        return new SemanticCacheStoreAdvisor(semanticAnalysisCache);
+    }
 }

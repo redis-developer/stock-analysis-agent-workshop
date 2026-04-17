@@ -164,7 +164,11 @@ class SynthesisAgentEvaluationTests {
 
     private EvaluationFixture evaluationFixture() {
         return new EvaluationFixture(
-                new AnalysisRequest("AAPL", "What do the latest signals suggest about AAPL right now?"),
+                new AnalysisRequest(
+                        "AAPL",
+                        "What do the latest signals suggest about AAPL right now?",
+                        "What do the latest signals suggest about AAPL right now?"
+                ),
                 new MarketSnapshot(
                         "AAPL",
                         new BigDecimal("195.40"),

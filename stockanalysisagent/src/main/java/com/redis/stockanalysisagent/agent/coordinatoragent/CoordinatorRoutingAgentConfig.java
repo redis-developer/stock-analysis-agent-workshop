@@ -75,14 +75,14 @@ public class CoordinatorRoutingAgentConfig {
     public ChatClient coordinatorChatClient(
             ChatModel chatModel,
             ChatMemory chatMemory,
-            SemanticGuardrailAdvisor semanticGuardrailAdvisor,
             SemanticCacheAdvisor semanticCacheAdvisor,
+            SemanticGuardrailAdvisor semanticGuardrailAdvisor,
             LongTermMemoryAdvisor longTermMemoryAdvisor
     ) {
         return ChatClient.builder(chatModel)
                 .defaultAdvisors(MessageChatMemoryAdvisor.builder(chatMemory).build())
-                .defaultAdvisors(semanticGuardrailAdvisor)
                 .defaultAdvisors(semanticCacheAdvisor)
+                .defaultAdvisors(semanticGuardrailAdvisor)
                 .defaultAdvisors(longTermMemoryAdvisor)
                 .defaultAdvisors(AdvisorParams.ENABLE_NATIVE_STRUCTURED_OUTPUT)
                 .defaultSystem(DEFAULT_PROMPT)

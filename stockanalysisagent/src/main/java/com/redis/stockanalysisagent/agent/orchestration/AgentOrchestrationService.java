@@ -172,7 +172,11 @@ public class AgentOrchestrationService {
             );
             enrichWithAgentExecution(observation, execution);
             executions.add(execution);
-            return AnalysisResponse.completed(executions, synthesisResult.finalAnswer());
+            return AnalysisResponse.completed(
+                    executions,
+                    synthesisResult.finalAnswer(),
+                    synthesisResult.semanticCacheStored()
+            );
         } catch (Throwable t) {
             observation.error(t);
             throw t;

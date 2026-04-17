@@ -32,11 +32,17 @@ public class CoordinatorAgent {
         );
     }
 
-    public RoutingOutcome execute(String userMessage, String conversationId, Integer retrievedMemoriesLimit) {
+    public RoutingOutcome execute(
+            String userMessage,
+            String conversationId,
+            Integer retrievedMemoriesLimit,
+            String semanticCacheKey
+    ) {
         CoordinatorRoutingAgent.RoutingResult routingResult = coordinatorRoutingAgent.route(
                 userMessage,
                 conversationId,
-                retrievedMemoriesLimit
+                retrievedMemoriesLimit,
+                semanticCacheKey
         );
         RoutingDecision routingDecision = routingResult.routingDecision();
         if (routingDecision.getFinishReason() == RoutingDecision.FinishReason.NEEDS_MORE_INPUT) {
@@ -51,10 +57,11 @@ public class CoordinatorAgent {
         );
     }
 
-    public AnalysisRequest toAnalysisRequest(RoutingDecision routingDecision) {
+    public AnalysisRequest toAnalysisRequest(RoutingDecision routingDecision, String semanticCacheKey) {
         return new AnalysisRequest(
                 routingDecision.getResolvedTicker().trim().toUpperCase(),
-                routingDecision.getResolvedQuestion().trim()
+                routingDecision.getResolvedQuestion().trim(),
+                semanticCacheKey == null ? "" : semanticCacheKey.trim()
         );
     }
 
