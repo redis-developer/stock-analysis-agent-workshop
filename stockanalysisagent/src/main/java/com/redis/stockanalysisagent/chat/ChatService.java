@@ -41,7 +41,8 @@ public class ChatService {
         ChatAnalysisService.AnalysisTurn analysisTurn = chatAnalysisService.analyze(
                 normalizedMessage,
                 conversationId,
-                retrievedMemoriesLimit
+                retrievedMemoriesLimit,
+                normalizedMessage
         );
         executionSteps.addAll(analysisTurn.executionSteps());
 

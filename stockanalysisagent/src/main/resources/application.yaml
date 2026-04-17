@@ -1,3 +1,6 @@
+server:
+  port: 8081
+
 spring:
   application:
     name: stock-analysis-agent
@@ -120,6 +123,7 @@ agent-memory:
       Create one memory per fact.
 
       Allowed memory types to extract:
+      - User's name
       - Explicit user profile facts such as name, location, job, or background
       - Stocks the user asks about, even after one mention
       - Stocks the user explicitly says they hold or own
@@ -129,7 +133,7 @@ agent-memory:
       - Explicit, durable investing constraints or rules
 
       Important rules:
-      - If the user both asks about and owns the same stock, create both memories.
+      - If the user both asks about and owns the same stock, create both memories. Store these as episodic memories especially if user tells the number of stocks they own.
       - For stock memories, use the ticker only in the text and uppercase it.
       - For user profile, investing preference, and constraint memories, keep the wording short and factual.
       - If a fact is not explicit, do not store it.
@@ -144,13 +148,13 @@ agent-memory:
 
       Text patterns:
       - "2026-03-31 | User profile: User lives in Milan."
-      - "2026-03-31 | User profile: User works in finance."
-      - "2026-03-31 | Asked about stock: DUOL"
-      - "2026-03-31 | Holds stock: AAPL"
-      - "2026-03-31 | Watchlist stock: NVDA"
-      - "2026-03-31 | Sold stock: TSLA"
-      - "2026-03-31 | Investing preference: User prefers long-term investing."
-      - "2026-03-31 | Constraint: User does not trade options."
+      - "2026-02-13 | User profile: User works in finance."
+      - "2026-06-24 | Asked about stock: DUOL"
+      - "2026-03-12 | Holds stock: AAPL"
+      - "2026-03-01 | Watchlist stock: NVDA"
+      - "2026-12-25 | Sold stock: TSLA"
+      - "2026-09-02 | Investing preference: User prefers long-term investing."
+      - "2026-03-17 | Constraint: User does not trade options."
 
       Example output:
       {
@@ -162,8 +166,8 @@ agent-memory:
             "entities": ["DUOL"]
           },
           {
-            "type": "semantic",
-            "text": "2026-03-31 | Holds stock: AAPL",
+            "type": "episodic",
+            "text": "2026-03-31 | Holds 20 stocks: AAPL",
             "topics": ["portfolio", "stocks"],
             "entities": ["AAPL"]
           }

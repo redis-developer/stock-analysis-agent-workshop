@@ -5,6 +5,7 @@ import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import com.redis.stockanalysisagent.semanticcache.SemanticCacheStoreAdvisor;
 
 @Configuration
 public class SynthesisAgentConfig {
@@ -30,9 +31,11 @@ public class SynthesisAgentConfig {
 
     @Bean("synthesisChatClient")
     public ChatClient synthesisChatClient(
-            ChatModel chatModel
+            ChatModel chatModel,
+            SemanticCacheStoreAdvisor semanticCacheStoreAdvisor
     ) {
         return ChatClient.builder(chatModel)
+                .defaultAdvisors(semanticCacheStoreAdvisor)
                 .defaultAdvisors(AdvisorParams.ENABLE_NATIVE_STRUCTURED_OUTPUT)
                 .defaultSystem(DEFAULT_PROMPT)
                 .build();

@@ -4,23 +4,16 @@ import org.springframework.ai.chat.client.ChatClientRequest;
 import org.springframework.ai.chat.client.ChatClientResponse;
 import org.springframework.ai.chat.client.advisor.api.CallAdvisor;
 import org.springframework.ai.chat.client.advisor.api.CallAdvisorChain;
-import org.springframework.ai.chat.metadata.ChatResponseMetadata;
-import org.springframework.ai.chat.messages.AssistantMessage;
-import org.springframework.ai.chat.model.ChatResponse;
-import org.springframework.ai.chat.model.Generation;
-import tools.jackson.core.io.JsonStringEncoder;
-
-import java.util.List;
 
 /**
- * Semantic cache advisor for coordinator ChatClient calls.
+ * Semantic cache lookup advisor.
  */
 public class SemanticCacheAdvisor implements CallAdvisor {
 
-    public static final String CACHE_HIT = "semantic_cache_hit";
-    public static final String BYPASS_CACHE = "semantic_cache_bypass";
-    private static final int DEFAULT_ORDER = 50;
-    private static final JsonStringEncoder JSON_STRING_ENCODER = JsonStringEncoder.getInstance();
+    public static final String CACHE_HIT = SemanticCacheSupport.CACHE_HIT;
+    public static final String BYPASS_CACHE = SemanticCacheSupport.CACHE_BYPASS;
+    public static final String CACHE_KEY = SemanticCacheSupport.CACHE_KEY;
+    private static final int DEFAULT_ORDER = 20;
 
     private final SemanticAnalysisCache semanticCache;
 
@@ -40,55 +33,21 @@ public class SemanticCacheAdvisor implements CallAdvisor {
 
     @Override
     public ChatClientResponse adviseCall(ChatClientRequest request, CallAdvisorChain chain) {
-        if (Boolean.TRUE.equals(request.context().get(BYPASS_CACHE))) {
+        if (SemanticCacheSupport.shouldBypass(request)) {
             return chain.nextCall(request);
         }
 
-        String cacheKey = cacheKey(request);
+        String cacheKey = SemanticCacheSupport.resolveCacheKey(request);
         if (cacheKey == null) {
             return chain.nextCall(request);
         }
 
-        var cachedResponse = semanticCache.findResponse(cacheKey);
+        var cachedResponse = semanticCache.findCachedResponse(cacheKey);
         if (cachedResponse.isPresent()) {
-            return ChatClientResponse.builder()
-                    .chatResponse(toChatResponse(cachedResponse.get()))
-                    .context(request.context())
-                    .context(CACHE_HIT, true)
-                    .build();
+            return SemanticCacheSupport.asCacheHitResponse(cacheKey, cachedResponse.get(), request.context());
         }
 
-        return chain.nextCall(request).mutate()
-                .context(CACHE_HIT, false)
-                .build();
-    }
-
-    private String cacheKey(ChatClientRequest request) {
-        if (request == null || request.prompt() == null || request.prompt().getUserMessage() == null) {
-            return null;
-        }
-
-        String text = request.prompt().getUserMessage().getText();
-        if (text == null) {
-            return null;
-        }
-
-        String normalized = text.trim();
-        return normalized.isEmpty() ? null : normalized;
-    }
-
-    private ChatResponse toChatResponse(String finalResponse) {
-        return ChatResponse.builder()
-                .metadata(ChatResponseMetadata.builder()
-                        .keyValue(CACHE_HIT, true)
-                        .build())
-                .generations(List.of(new Generation(new AssistantMessage(toCoordinatorPayload(finalResponse)))))
-                .build();
-    }
-
-    private String toCoordinatorPayload(String finalResponse) {
-        StringBuilder escapedFinalResponse = new StringBuilder();
-        JSON_STRING_ENCODER.quoteAsString(finalResponse == null ? "" : finalResponse, escapedFinalResponse);
-        return "{\"finishReason\":\"DIRECT_RESPONSE\",\"finalResponse\":\"%s\"}".formatted(escapedFinalResponse);
+        ChatClientResponse response = chain.nextCall(request);
+        return response == null ? null : SemanticCacheSupport.markMiss(response, cacheKey);
     }
 }

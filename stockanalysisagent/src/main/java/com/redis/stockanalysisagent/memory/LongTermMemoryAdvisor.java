@@ -117,7 +117,9 @@ public class LongTermMemoryAdvisor implements BaseAdvisor {
                 return List.of();
             }
             return response.getMemories().stream()
-                    .map(MemoryRecordResult::getText)
+                    .map(it -> {
+                        return it.getCreatedAt() +  " | " + it.getText();
+                    })
                     .filter(text -> text != null && !text.isBlank())
                     .toList();
         } catch (RuntimeException ignored) {
