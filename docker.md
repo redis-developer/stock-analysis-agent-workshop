@@ -1,3 +1,14 @@
+```bash
+docker pull europe-west4-docker.pkg.dev/personal-rdlts/session-runners/1_spring_ai_fundamentals@sha256:28b7b496cd413a2b99640f72d08ce0f5b2ad662c215fb1580bccd44f27d9da51
+
+docker pull europe-west4-docker.pkg.dev/personal-rdlts/session-runners/2_building_multi_agents@sha256:18673b0d39ea540e929394dff2bdb188a57da7393b538b2c24ea15c346284e41
+
+docker pull europe-west4-docker.pkg.dev/personal-rdlts/session-runners/3_multi_agent_patterns@sha256:18ef9e1dafa1d036a691ab94fa18930ba8a045dd6c871bfeb914088ebde4a7e6
+
+docker pull europe-west4-docker.pkg.dev/personal-rdlts/session-runners/4_advanced_multi_agent_patterns@sha256:59642a3a9ff010587fef843547bae78e766fb223ca7ea99bd7cbf0a57f6cfbc8
+
+```
+
 
 ```bash
 docker run --rm \
