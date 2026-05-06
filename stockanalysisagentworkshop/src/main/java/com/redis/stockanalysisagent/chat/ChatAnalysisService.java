@@ -8,7 +8,6 @@ import com.redis.stockanalysisagent.agent.orchestration.AgentOrchestrationServic
 import com.redis.stockanalysisagent.agent.orchestration.AnalysisRequest;
 import com.redis.stockanalysisagent.agent.orchestration.AnalysisResponse;
 import com.redis.stockanalysisagent.agent.orchestration.TokenUsageSummary;
-import com.redis.stockanalysisagent.semanticcache.SemanticAnalysisCache;
 import io.micrometer.observation.Observation;
 import io.micrometer.observation.ObservationRegistry;
 import org.springframework.stereotype.Service;
@@ -24,33 +23,41 @@ class ChatAnalysisService {
     private static final String KIND_AGENT = "agent";
     private static final String KIND_SYSTEM = "system";
     private static final String COORDINATOR = "COORDINATOR";
+    private static final String SEMANTIC_GUARDRAIL = "SEMANTIC_GUARDRAIL";
     private static final String SEMANTIC_CACHE = "SEMANTIC_CACHE";
+    private static final String SEMANTIC_CACHE_STORE = "SEMANTIC_CACHE_STORE";
 
     private final CoordinatorAgent coordinatorAgent;
     private final AgentOrchestrationService agentOrchestrationService;
     private final ObservationRegistry observationRegistry;
-    private final SemanticAnalysisCache semanticAnalysisCache;
 
     ChatAnalysisService(
             CoordinatorAgent coordinatorAgent,
             AgentOrchestrationService agentOrchestrationService,
-            ObservationRegistry observationRegistry,
-            SemanticAnalysisCache semanticAnalysisCache
+            ObservationRegistry observationRegistry
     ) {
         this.coordinatorAgent = coordinatorAgent;
         this.agentOrchestrationService = agentOrchestrationService;
         this.observationRegistry = observationRegistry;
-        this.semanticAnalysisCache = semanticAnalysisCache;
     }
 
-    AnalysisTurn analyze(String request, String conversationId) {
+    AnalysisTurn analyze(
+            String request,
+            String conversationId,
+            Integer retrievedMemoriesLimit,
+            String semanticCacheKey
+    ) {
         long coordinatorStartedAt = System.nanoTime();
-        CoordinatorAgent.RoutingOutcome routingOutcome = observeCoordinator(request, conversationId);
+        CoordinatorAgent.RoutingOutcome routingOutcome = observeCoordinator(
+                request,
+                conversationId,
+                retrievedMemoriesLimit,
+                semanticCacheKey
+        );
         RoutingDecision routingDecision = routingOutcome.routingDecision();
         List<ChatExecutionStep> executionSteps = new ArrayList<>();
-        // PART 9 STEP 4:
-        // After semantic cache integration is complete, add a system execution step here
-        // with cacheStep(routingOutcome.fromSemanticCache()) so the UI shows hit or miss.
+        executionSteps.add(cacheStep(routingOutcome.cacheHit()));
+        executionSteps.add(guardrailStep(routingOutcome.cacheHit(), routingOutcome.guardrailHit(), routingOutcome.guardrailRoute()));
         executionSteps.add(analysisStep(
                 COORDINATOR,
                 elapsedDurationMs(coordinatorStartedAt),
@@ -62,7 +69,8 @@ class ChatAnalysisService {
             return new AnalysisTurn(
                     routingDecision.getNextPrompt(),
                     List.copyOf(executionSteps),
-                    routingOutcome.fromSemanticCache(),
+                    routingOutcome.cacheHit(),
+                    routingOutcome.guardrailHit(),
                     TokenUsageSummary.sum(executionSteps.stream().map(ChatExecutionStep::tokenUsage).toList())
             );
         }
@@ -71,7 +79,8 @@ class ChatAnalysisService {
             return new AnalysisTurn(
                     resolveCoordinatorMessage(routingDecision),
                     List.copyOf(executionSteps),
-                    routingOutcome.fromSemanticCache(),
+                    routingOutcome.cacheHit(),
+                    routingOutcome.guardrailHit(),
                     TokenUsageSummary.sum(executionSteps.stream().map(ChatExecutionStep::tokenUsage).toList())
             );
         }
@@ -80,39 +89,50 @@ class ChatAnalysisService {
             return new AnalysisTurn(
                     resolveCoordinatorMessage(routingDecision),
                     List.copyOf(executionSteps),
-                    routingOutcome.fromSemanticCache(),
+                    routingOutcome.cacheHit(),
+                    routingOutcome.guardrailHit(),
                     TokenUsageSummary.sum(executionSteps.stream().map(ChatExecutionStep::tokenUsage).toList())
             );
         }
 
-        AnalysisRequest analysisRequest = coordinatorAgent.toAnalysisRequest(routingDecision);
+        AnalysisRequest analysisRequest = coordinatorAgent.toAnalysisRequest(routingDecision, semanticCacheKey);
         ExecutionPlan executionPlan = coordinatorAgent.createPlan(routingDecision);
         AnalysisResponse response = agentOrchestrationService.processRequest(analysisRequest, executionPlan);
         executionSteps.addAll(extractExecutionSteps(response));
-        // PART 8 STEP 10:
-        // After a semantic cache miss runs the full pipeline, store the final answer here
-        // so the advisor can reuse it on a later similar request.
-        // semanticAnalysisCache.storeResponse(request, response.answer());
+        if (response.semanticCacheStored()) {
+            executionSteps.add(cacheStoreStep());
+        }
 
         return new AnalysisTurn(
                 response.answer(),
                 List.copyOf(executionSteps),
-                routingOutcome.fromSemanticCache(),
+                false,
+                false,
                 TokenUsageSummary.sum(executionSteps.stream().map(ChatExecutionStep::tokenUsage).toList())
         );
     }
 
-    private CoordinatorAgent.RoutingOutcome observeCoordinator(String request, String conversationId) {
+    private CoordinatorAgent.RoutingOutcome observeCoordinator(
+            String request,
+            String conversationId,
+            Integer retrievedMemoriesLimit,
+            String semanticCacheKey
+    ) {
         Observation observation = coordinatorObservation(observationRegistry)
                 .highCardinalityKeyValue(KEY_CONVERSATION_ID, conversationId)
                 .start();
         try {
-            CoordinatorAgent.RoutingOutcome outcome = coordinatorAgent.execute(request, conversationId);
+            CoordinatorAgent.RoutingOutcome outcome = coordinatorAgent.execute(
+                    request,
+                    conversationId,
+                    retrievedMemoriesLimit,
+                    semanticCacheKey
+            );
             enrichWithRoutingDecision(observation, outcome.routingDecision());
             enrichWithTokenUsage(observation, outcome.tokenUsage());
-            // PART 9 STEP 3:
-            // Add KEY_SEMANTIC_CACHE_HIT as a low-cardinality tag once the routing outcome
-            // carries the semantic cache hit or miss result.
+            if (outcome.cacheHit()) {
+                observation.lowCardinalityKeyValue(KEY_SEMANTIC_CACHE_HIT, "true");
+            }
             return outcome;
         } catch (Throwable t) {
             observation.error(t);
@@ -162,18 +182,53 @@ class ChatAnalysisService {
         return new ChatExecutionStep(id, null, KIND_AGENT, durationMs, summary, tokenUsage);
     }
 
+    private ChatExecutionStep guardrailStep(boolean cacheHit, boolean guardrailHit, String guardrailRoute) {
+        return new ChatExecutionStep(
+                SEMANTIC_GUARDRAIL,
+                "Semantic guardrail",
+                KIND_SYSTEM,
+                0,
+                cacheHit
+                        ? "Skipped the semantic guardrail because the semantic cache already returned a response."
+                        : guardrailHit
+                        ? "Blocked the request with the `%s` semantic guardrail before any LLM call.".formatted(
+                        formatGuardrailRoute(guardrailRoute)
+                )
+                        : "Checked the semantic guardrail after the semantic cache and allowed the request to continue.",
+                null
+        );
+    }
+
     private ChatExecutionStep cacheStep(boolean cacheHit) {
-        // PART 9 STEP 4:
-        // Replace this method body with the semantic cache execution-step snippet
-        // from the Part 9 guide.
         return new ChatExecutionStep(
                 SEMANTIC_CACHE,
                 "Semantic cache",
                 KIND_SYSTEM,
                 0,
-                "Add the semantic cache hit or miss summary here.",
+                cacheHit
+                        ? "Found a reusable response in the semantic cache and returned it before any other model call."
+                        : "Checked the semantic cache before the coordinator call and found no reusable response.",
                 null
         );
+    }
+
+    private ChatExecutionStep cacheStoreStep() {
+        return new ChatExecutionStep(
+                SEMANTIC_CACHE_STORE,
+                "Semantic cache store",
+                KIND_SYSTEM,
+                0,
+                "Stored the final synthesized answer in the semantic cache after all model calls completed.",
+                null
+        );
+    }
+
+    private String formatGuardrailRoute(String guardrailRoute) {
+        if (guardrailRoute == null || guardrailRoute.isBlank()) {
+            return "blocked_route";
+        }
+
+        return guardrailRoute;
     }
 
     private String coordinatorSummary(RoutingDecision routingDecision) {
@@ -201,6 +256,7 @@ class ChatAnalysisService {
             String response,
             List<ChatExecutionStep> executionSteps,
             boolean fromSemanticCache,
+            boolean fromSemanticGuardrail,
             TokenUsageSummary tokenUsage
     ) {
     }

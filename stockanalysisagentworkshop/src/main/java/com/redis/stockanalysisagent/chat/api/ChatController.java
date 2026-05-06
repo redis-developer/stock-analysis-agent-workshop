@@ -1,6 +1,7 @@
 package com.redis.stockanalysisagent.chat.api;
 
 import com.redis.stockanalysisagent.chat.ChatService;
+import com.redis.stockanalysisagent.memory.LongTermMemoryAdvisor;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
@@ -38,7 +39,8 @@ public class ChatController {
         ChatService.ChatTurn turn = chatService.chat(
                 userId,
                 sessionId,
-                request.message().trim()
+                request.message().trim(),
+                request.retrievedMemoriesLimit()
         );
         long responseTimeMs = (System.nanoTime() - startedAt) / 1_000_000;
 
@@ -49,6 +51,7 @@ public class ChatController {
                 turn.response(),
                 turn.retrievedMemories(),
                 turn.fromSemanticCache(),
+                turn.fromSemanticGuardrail(),
                 turn.tokenUsage(),
                 turn.executionSteps(),
                 responseTimeMs
@@ -57,7 +60,10 @@ public class ChatController {
 
     @GetMapping("/context")
     public ResponseEntity<ChatContextResponse> context() {
-        return ResponseEntity.ok(new ChatContextResponse(defaultUserId));
+        return ResponseEntity.ok(new ChatContextResponse(
+                defaultUserId,
+                LongTermMemoryAdvisor.DEFAULT_MAX_MEMORIES
+        ));
     }
 
     @DeleteMapping("/session/{sessionId}")

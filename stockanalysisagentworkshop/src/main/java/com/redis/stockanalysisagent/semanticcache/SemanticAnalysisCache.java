@@ -46,7 +46,15 @@ public class SemanticAnalysisCache {
         return findResponse(request);
     }
 
+    public Optional<String> findCachedResponse(String request) {
+        return findResponse(request);
+    }
+
     public void store(String request, String response) {
+        storeResponse(request, response);
+    }
+
+    public void storeFinalResponse(String request, String response) {
         storeResponse(request, response);
     }
 

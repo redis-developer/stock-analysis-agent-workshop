@@ -1,5 +1,6 @@
 package com.redis.stockanalysisagent.agent.synthesisagent;
 
+import com.redis.stockanalysisagent.semanticcache.SemanticCacheStoreAdvisor;
 import org.springframework.ai.chat.client.AdvisorParams;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.model.ChatModel;
@@ -30,9 +31,13 @@ public class SynthesisAgentConfig {
 
     @Bean("synthesisChatClient")
     public ChatClient synthesisChatClient(
-            ChatModel chatModel
+            ChatModel chatModel,
+            SemanticCacheStoreAdvisor semanticCacheStoreAdvisor
     ) {
+        // PART 8 STEP 10:
+        // Attach the semantic cache store advisor to completed synthesis calls.
         return ChatClient.builder(chatModel)
+                .defaultAdvisors(semanticCacheStoreAdvisor)
                 .defaultAdvisors(AdvisorParams.ENABLE_NATIVE_STRUCTURED_OUTPUT)
                 .defaultSystem(DEFAULT_PROMPT)
                 .build();

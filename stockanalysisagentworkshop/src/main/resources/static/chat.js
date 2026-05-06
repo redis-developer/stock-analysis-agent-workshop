@@ -1,18 +1,23 @@
 (function () {
     const sessionStorageKey = "stock-analysis-chat:session-id";
     const userStorageKey = "stock-analysis-chat:user-id";
+    const retrievedMemoriesLimitStorageKey = "stock-analysis-chat:retrieved-memories-limit";
+    const maxRetrievedMemoriesLimit = 20;
 
     const state = {
         loading: false,
         messages: [],
         sessionId: null,
         userId: null,
-        defaultUserId: null
+        defaultUserId: null,
+        defaultRetrievedMemoriesLimit: 10,
+        retrievedMemoriesLimit: 10
     };
 
     const elements = {
         questionInput: document.getElementById("question-input"),
         userIdInput: document.getElementById("user-id-input"),
+        retrievedMemoriesLimitInput: document.getElementById("retrieved-memories-limit-input"),
         messages: document.getElementById("messages"),
         composer: document.getElementById("composer"),
         sendButton: document.getElementById("send-button"),
@@ -27,6 +32,7 @@
     async function initialize() {
         state.sessionId = hydrateSessionId();
         state.userId = hydrateUserIdOverride();
+        state.retrievedMemoriesLimit = hydrateRetrievedMemoriesLimit();
 
         elements.composer.addEventListener("submit", onSubmit);
         elements.clearButton.addEventListener("click", clearChat);
@@ -35,6 +41,8 @@
         elements.messages.addEventListener("click", onSuggestionClick);
         elements.userIdInput.addEventListener("input", onUserIdInput);
         elements.userIdInput.addEventListener("blur", commitUserId);
+        elements.retrievedMemoriesLimitInput.addEventListener("input", onRetrievedMemoriesLimitInput);
+        elements.retrievedMemoriesLimitInput.addEventListener("blur", commitRetrievedMemoriesLimit);
 
         setStatus("Session ready");
         await hydrateChatContext();
@@ -80,6 +88,7 @@
         }
 
         commitUserId();
+        commitRetrievedMemoriesLimit();
 
         appendMessage({
             role: "user",
@@ -95,8 +104,12 @@
             const response = await requestChat(question);
             state.userId = response.userId || activeUserId();
             state.sessionId = response.sessionId || state.sessionId;
+            state.retrievedMemoriesLimit = normalizeRetrievedMemoriesLimit(
+                response.retrievedMemoriesLimit ?? state.retrievedMemoriesLimit
+            );
             persistUserIdOverride();
             persistSessionId(state.sessionId);
+            persistRetrievedMemoriesLimit();
             renderIdentity();
 
             appendMessage({
@@ -105,6 +118,7 @@
                 timestamp: new Date().toISOString(),
                 memories: response.retrievedMemories || [],
                 fromSemanticCache: Boolean(response.fromSemanticCache),
+                fromSemanticGuardrail: Boolean(response.fromSemanticGuardrail),
                 tokenUsage: normalizeTokenUsage(response.tokenUsage),
                 executionSteps: Array.isArray(response.executionSteps) ? response.executionSteps : [],
                 responseTimeMs: Number.isFinite(response.responseTimeMs) ? response.responseTimeMs : null
@@ -133,7 +147,8 @@
             body: JSON.stringify({
                 userId: activeUserId(),
                 sessionId: state.sessionId,
-                message: message
+                message: message,
+                retrievedMemoriesLimit: activeRetrievedMemoriesLimit()
             })
         });
 
@@ -157,6 +172,14 @@
 
             const body = safeParseJson(await response.text());
             state.defaultUserId = body && typeof body.defaultUserId === "string" ? body.defaultUserId : null;
+            if (body && Number.isFinite(body.defaultRetrievedMemoriesLimit)) {
+                const normalizedDefaultLimit = normalizeRetrievedMemoriesLimit(body.defaultRetrievedMemoriesLimit);
+                const hasStoredLimit = readStoredValue(retrievedMemoriesLimitStorageKey) !== null;
+                state.defaultRetrievedMemoriesLimit = normalizedDefaultLimit;
+                if (!hasStoredLimit) {
+                    state.retrievedMemoriesLimit = normalizedDefaultLimit;
+                }
+            }
             if (!normalizeUserId(state.userId)) {
                 state.userId = state.defaultUserId;
             }
@@ -225,6 +248,7 @@
         elements.userIdInput.value = state.userId || state.defaultUserId || "";
         elements.userIdInput.placeholder = state.defaultUserId || "Username";
         elements.sessionIdValue.textContent = state.sessionId || "Unavailable";
+        elements.retrievedMemoriesLimitInput.value = String(activeRetrievedMemoriesLimit());
     }
 
     function commitUserId() {
@@ -250,6 +274,55 @@
         }
     }
 
+    function onRetrievedMemoriesLimitInput() {
+        state.retrievedMemoriesLimit = normalizeRetrievedMemoriesLimit(elements.retrievedMemoriesLimitInput.value);
+    }
+
+    function commitRetrievedMemoriesLimit() {
+        state.retrievedMemoriesLimit = normalizeRetrievedMemoriesLimit(elements.retrievedMemoriesLimitInput.value);
+        persistRetrievedMemoriesLimit();
+        renderIdentity();
+    }
+
+    function persistRetrievedMemoriesLimit() {
+        try {
+            if (state.retrievedMemoriesLimit === state.defaultRetrievedMemoriesLimit) {
+                window.localStorage.removeItem(retrievedMemoriesLimitStorageKey);
+                return;
+            }
+
+            window.localStorage.setItem(retrievedMemoriesLimitStorageKey, String(state.retrievedMemoriesLimit));
+        } catch (error) {
+            // Ignore storage access failures.
+        }
+    }
+
+    function hydrateRetrievedMemoriesLimit() {
+        const stored = readStoredValue(retrievedMemoriesLimitStorageKey);
+        return normalizeRetrievedMemoriesLimit(stored || state.defaultRetrievedMemoriesLimit);
+    }
+
+    function activeRetrievedMemoriesLimit() {
+        return normalizeRetrievedMemoriesLimit(state.retrievedMemoriesLimit);
+    }
+
+    function normalizeRetrievedMemoriesLimit(value) {
+        const parsed = Number.parseInt(String(value), 10);
+        if (!Number.isFinite(parsed)) {
+            return state.defaultRetrievedMemoriesLimit;
+        }
+
+        return Math.min(maxRetrievedMemoriesLimit, Math.max(1, parsed));
+    }
+
+    function readStoredValue(key) {
+        try {
+            return window.localStorage.getItem(key);
+        } catch (error) {
+            return null;
+        }
+    }
+
     function buildEmptyState() {
         return elements.emptyStateTemplate.content.firstElementChild.cloneNode(true);
     }
@@ -271,9 +344,16 @@
         meta.className = "message__meta";
 
         const tokenUsage = resolveTokenUsage(message);
-        if (message.fromSemanticCache || message.responseTimeMs != null || tokenUsage) {
+        if (message.fromSemanticGuardrail || message.fromSemanticCache || message.responseTimeMs != null || tokenUsage) {
             const badges = document.createElement("div");
             badges.className = "message__badges";
+
+            if (message.fromSemanticGuardrail) {
+                const guardrailBadge = document.createElement("span");
+                guardrailBadge.className = "badge badge--guardrail";
+                guardrailBadge.textContent = "Blocked by guardrail";
+                badges.appendChild(guardrailBadge);
+            }
 
             if (message.fromSemanticCache) {
                 const cacheBadge = document.createElement("span");

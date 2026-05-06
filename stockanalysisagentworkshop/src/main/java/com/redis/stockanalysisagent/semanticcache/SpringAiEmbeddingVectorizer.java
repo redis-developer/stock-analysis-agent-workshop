@@ -5,11 +5,11 @@ import org.springframework.ai.embedding.EmbeddingModel;
 
 import java.util.List;
 
-class SpringAiEmbeddingVectorizer extends BaseVectorizer {
+public class SpringAiEmbeddingVectorizer extends BaseVectorizer {
 
     private final EmbeddingModel embeddingModel;
 
-    SpringAiEmbeddingVectorizer(String modelName, EmbeddingModel embeddingModel, int dimensions) {
+    public SpringAiEmbeddingVectorizer(String modelName, EmbeddingModel embeddingModel, int dimensions) {
         super(modelName, dimensions, "float32");
         this.embeddingModel = embeddingModel;
     }

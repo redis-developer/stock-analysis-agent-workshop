@@ -12,6 +12,7 @@ public record ChatResponse(
         String response,
         List<String> retrievedMemories,
         boolean fromSemanticCache,
+        boolean fromSemanticGuardrail,
         TokenUsageSummary tokenUsage,
         List<ChatExecutionStep> executionSteps,
         long responseTimeMs

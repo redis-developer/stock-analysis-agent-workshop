@@ -1,6 +1,7 @@
 package com.redis.stockanalysisagent.chat.api;
 
 public record ChatContextResponse(
-        String defaultUserId
+        String defaultUserId,
+        int defaultRetrievedMemoriesLimit
 ) {
 }

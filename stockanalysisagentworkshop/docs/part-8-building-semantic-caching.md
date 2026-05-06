@@ -12,8 +12,11 @@ You should only work on these files:
 - `src/main/java/com/redis/stockanalysisagent/semanticcache/SemanticAnalysisCache.java`
 - `src/main/java/com/redis/stockanalysisagent/semanticcache/SemanticCacheAdvisor.java`
 - `src/main/java/com/redis/stockanalysisagent/semanticcache/SemanticCacheConfig.java`
+- `src/main/java/com/redis/stockanalysisagent/semanticcache/SemanticCacheStoreAdvisor.java`
 - `src/main/java/com/redis/stockanalysisagent/agent/coordinatoragent/CoordinatorRoutingAgentConfig.java`
 - `src/main/java/com/redis/stockanalysisagent/agent/coordinatoragent/CoordinatorRoutingAgent.java`
+- `src/main/java/com/redis/stockanalysisagent/agent/synthesisagent/SynthesisAgentConfig.java`
+- `src/main/java/com/redis/stockanalysisagent/agent/synthesisagent/SynthesisAgent.java`
 - `src/main/java/com/redis/stockanalysisagent/chat/ChatAnalysisService.java`
 
 The provider call sites are already wired to use these caches.
@@ -304,52 +307,9 @@ return new SemanticCache.Builder()
         .build();
 ```
 
-Then add these helper methods below `initializeCache(...)`:
+The workshop file already contains `createIndex(...)` and `ensureIndexExists(...)`. Keep those helpers and do not add second copies.
 
-```java
-private SearchIndex createIndex(SemanticCacheProperties properties, UnifiedJedis redisClient) {
-    IndexSchema schema = IndexSchema.builder()
-            .name(properties.getName())
-            .prefix("cache:" + properties.getName() + ":")
-            .storageType(IndexSchema.StorageType.HASH)
-            .addTextField("prompt", field -> {
-            })
-            .addTextField("response", field -> {
-            })
-            .addVectorField("prompt_vector", properties.getEmbeddingDimensions(), field -> field
-                    .algorithm(redis.clients.jedis.search.schemafields.VectorField.VectorAlgorithm.FLAT)
-                    .distanceMetric(VectorField.DistanceMetric.COSINE))
-            .addNumericField("inserted_at", field -> {
-            })
-            .addNumericField("updated_at", field -> {
-            })
-            .addTagField("user", field -> {
-            })
-            .addTagField("session", field -> {
-            })
-            .addTagField("category", field -> {
-            })
-            .build();
-
-    return new SearchIndex(schema, redisClient);
-}
-
-private void ensureIndexExists(SearchIndex index, String cacheName) {
-    if (index.exists()) {
-        return;
-    }
-
-    index.create();
-
-    if (!index.exists()) {
-        throw new IllegalStateException("Semantic cache index %s was not created.".formatted(cacheName));
-    }
-
-    log.info("Created semantic cache index {}", cacheName);
-}
-```
-
-Add these imports if they are not already present:
+Make sure these imports are present:
 
 ```java
 import com.redis.vl.schema.IndexSchema;
@@ -386,90 +346,32 @@ public ChatClientResponse adviseCall(ChatClientRequest request, CallAdvisorChain
     // Replace this method body with the advisor-based semantic cache snippet from the Part 8 guide.
     // The finished advisor should:
     // 1. bypass semantic lookup when BYPASS_CACHE is true
-    // 2. normalize the current user message into a cache key
+    // 2. resolve the semantic cache key from advisor context or the user message
     // 3. short circuit on cache hit with a synthetic DIRECT_RESPONSE payload
-    // 4. mark the response context with CACHE_HIT
-    return chain.nextCall(request).mutate()
-            .context(CACHE_HIT, false)
-            .build();
+    // 4. mark the response context with CACHE_HIT and CACHE_KEY
+    return chain.nextCall(request);
 }
 ```
 
 Replace the method body with this exact code:
 
 ```java
-if (Boolean.TRUE.equals(request.context().get(BYPASS_CACHE))) {
+if (SemanticCacheSupport.shouldBypass(request)) {
     return chain.nextCall(request);
 }
 
-String cacheKey = cacheKey(request);
+String cacheKey = SemanticCacheSupport.resolveCacheKey(request);
 if (cacheKey == null) {
     return chain.nextCall(request);
 }
 
-var cachedResponse = semanticCache.findResponse(cacheKey);
+var cachedResponse = semanticCache.findCachedResponse(cacheKey);
 if (cachedResponse.isPresent()) {
-    return ChatClientResponse.builder()
-            .chatResponse(toChatResponse(cachedResponse.get()))
-            .context(request.context())
-            .context(CACHE_HIT, true)
-            .build();
+    return SemanticCacheSupport.asCacheHitResponse(cacheKey, cachedResponse.get(), request.context());
 }
 
-return chain.nextCall(request).mutate()
-        .context(CACHE_HIT, false)
-        .build();
-```
-
-Then add these imports:
-
-```java
-import org.springframework.ai.chat.metadata.ChatResponseMetadata;
-import org.springframework.ai.chat.messages.AssistantMessage;
-import org.springframework.ai.chat.model.ChatResponse;
-import org.springframework.ai.chat.model.Generation;
-import tools.jackson.core.io.JsonStringEncoder;
-
-import java.util.List;
-```
-
-Add this field below `DEFAULT_ORDER`:
-
-```java
-private static final JsonStringEncoder JSON_STRING_ENCODER = JsonStringEncoder.getInstance();
-```
-
-Then add these helper methods below `adviseCall(...)`:
-
-```java
-private String cacheKey(ChatClientRequest request) {
-    if (request == null || request.prompt() == null || request.prompt().getUserMessage() == null) {
-        return null;
-    }
-
-    String text = request.prompt().getUserMessage().getText();
-    if (text == null) {
-        return null;
-    }
-
-    String normalized = text.trim();
-    return normalized.isEmpty() ? null : normalized;
-}
-
-private ChatResponse toChatResponse(String finalResponse) {
-    return ChatResponse.builder()
-            .metadata(ChatResponseMetadata.builder()
-                    .keyValue(CACHE_HIT, true)
-                    .build())
-            .generations(List.of(new Generation(new AssistantMessage(toCoordinatorPayload(finalResponse)))))
-            .build();
-}
-
-private String toCoordinatorPayload(String finalResponse) {
-    StringBuilder escapedFinalResponse = new StringBuilder();
-    JSON_STRING_ENCODER.quoteAsString(finalResponse == null ? "" : finalResponse, escapedFinalResponse);
-    return "{\"finishReason\":\"DIRECT_RESPONSE\",\"finalResponse\":\"%s\"}".formatted(escapedFinalResponse);
-}
+ChatClientResponse response = chain.nextCall(request);
+return response == null ? null : SemanticCacheSupport.markMiss(response, cacheKey);
 ```
 
 Why you did this:
@@ -481,7 +383,7 @@ Why you did this:
 What this code is doing:
 
 - it checks the semantic cache before the coordinator call continues
-- it treats the current user message as the cache lookup key
+- it uses the explicit advisor cache key when one exists, falling back to the current user message
 - it returns a synthetic `DIRECT_RESPONSE` payload on cache hit
 - it lets the normal coordinator flow continue on cache miss
 
@@ -516,14 +418,15 @@ Open:
 
 `src/main/java/com/redis/stockanalysisagent/agent/coordinatoragent/CoordinatorRoutingAgentConfig.java`
 
-After you complete the Part 4 coordinator client bean, update the method signature so it receives `SemanticCacheAdvisor semanticCacheAdvisor`.
+The coordinator client bean should receive `SemanticCacheAdvisor semanticCacheAdvisor`, `SemanticGuardrailAdvisor semanticGuardrailAdvisor`, and `LongTermMemoryAdvisor longTermMemoryAdvisor`.
 
-Then make the bean return this:
+Make sure it returns this:
 
 ```java
 return ChatClient.builder(chatModel)
         .defaultAdvisors(MessageChatMemoryAdvisor.builder(chatMemory).build())
         .defaultAdvisors(semanticCacheAdvisor)
+        .defaultAdvisors(semanticGuardrailAdvisor)
         .defaultAdvisors(longTermMemoryAdvisor)
         .defaultAdvisors(AdvisorParams.ENABLE_NATIVE_STRUCTURED_OUTPUT)
         .defaultSystem(DEFAULT_PROMPT)
@@ -532,17 +435,19 @@ return ChatClient.builder(chatModel)
 
 Why you did this:
 
-- semantic caching should happen before long-term memory retrieval
+- semantic caching should happen before semantic guardrails and long-term memory retrieval
+- semantic guardrails should run before long-term memory retrieval
 - the coordinator still needs native structured output so the routing decision is parsed as `RoutingDecision`
 
 What this code is doing:
 
 - it runs working memory first
 - then semantic cache
+- then semantic guardrails
 - then long-term memory
 - then the coordinator model call
 
-## Step 9: Surface Semantic Cache Hits in `CoordinatorRoutingAgent`
+## Step 9: Surface Semantic Cache and Guardrail Hits in `CoordinatorRoutingAgent`
 
 Open:
 
@@ -551,11 +456,21 @@ Open:
 Replace `route(...)` with this:
 
 ```java
-public RoutingResult route(String userMessage, String conversationId) {
+public RoutingResult route(
+        String userMessage,
+        String conversationId,
+        Integer retrievedMemoriesLimit,
+        String semanticCacheKey
+) {
     ResponseEntity<ChatResponse, RoutingDecision> response = coordinatorChatClient
             .prompt()
             .user(userMessage)
-            .advisors(spec -> spec.param(ChatMemory.CONVERSATION_ID, conversationId))
+            .advisors(spec -> {
+                spec.param(ChatMemory.CONVERSATION_ID, conversationId);
+                spec.param(LongTermMemoryAdvisor.MAX_RETRIEVED_MEMORIES,
+                        retrievedMemoriesLimit != null ? retrievedMemoriesLimit : LongTermMemoryAdvisor.DEFAULT_MAX_MEMORIES);
+                spec.param(SemanticCacheAdvisor.CACHE_KEY, semanticCacheKey);
+            })
             .call()
             .responseEntity(RoutingDecision.class);
 
@@ -564,10 +479,13 @@ public RoutingResult route(String userMessage, String conversationId) {
         throw new IllegalStateException("Coordinator returned no routing decision.");
     }
     ChatResponse chatResponse = response.response();
-    boolean fromSemanticCache = chatResponse != null
+    boolean cacheHit = chatResponse != null
             && Boolean.TRUE.equals(chatResponse.getMetadata().getOrDefault(SemanticCacheAdvisor.CACHE_HIT, false));
+    boolean guardrailHit = chatResponse != null
+            && Boolean.TRUE.equals(chatResponse.getMetadata().getOrDefault(SemanticGuardrailAdvisor.GUARDRAIL_BLOCKED, false));
+    String guardrailRoute = chatResponse == null ? null : metadataString(chatResponse, SemanticGuardrailAdvisor.GUARDRAIL_ROUTE);
 
-    return new RoutingResult(decision, TokenUsageSummary.from(chatResponse), fromSemanticCache);
+    return new RoutingResult(decision, TokenUsageSummary.from(chatResponse), cacheHit, guardrailHit, guardrailRoute);
 }
 ```
 
@@ -577,7 +495,9 @@ Make sure the record now includes the boolean:
 public record RoutingResult(
         RoutingDecision routingDecision,
         TokenUsageSummary tokenUsage,
-        boolean fromSemanticCache
+        boolean cacheHit,
+        boolean guardrailHit,
+        String guardrailRoute
 ) {
 }
 ```
@@ -586,40 +506,59 @@ Add these imports:
 
 ```java
 import com.redis.stockanalysisagent.semanticcache.SemanticCacheAdvisor;
+import com.redis.stockanalysisagent.semanticguardrail.SemanticGuardrailAdvisor;
+import com.redis.stockanalysisagent.memory.LongTermMemoryAdvisor;
 import org.springframework.ai.chat.client.ResponseEntity;
 import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.ai.chat.model.ChatResponse;
 ```
 
-If your `CoordinatorAgent.RoutingOutcome` still has only two fields, extend it so it also carries `fromSemanticCache` and pass the flag through in `execute(...)`.
+If your `CoordinatorAgent.RoutingOutcome` still has only two fields, extend it so it also carries `cacheHit`, `guardrailHit`, and `guardrailRoute`, then pass those values through in `execute(...)`.
 
 Why you did this:
 
 - the advisor context is not exposed directly once you consume a typed `responseEntity(...)`
-- the cache hit flag needs to survive so the UI and observability layers can see it
+- the cache and guardrail flags need to survive so the UI and observability layers can see them
 
-## Step 10: Store Final Answers After a Completed Miss
+## Step 10: Store Final Answers with `SemanticCacheStoreAdvisor`
 
 Open:
 
-`src/main/java/com/redis/stockanalysisagent/chat/ChatAnalysisService.java`
+`src/main/java/com/redis/stockanalysisagent/semanticcache/SemanticCacheStoreAdvisor.java`
 
-Find this commented line in `analyze(...)`:
+The final app does not call `SemanticAnalysisCache` directly from `ChatAnalysisService`.
+Instead, final answer storage happens in a store advisor on the synthesis client.
+
+Add `SemanticCacheStoreAdvisor` and register it in `SemanticCacheConfig`:
 
 ```java
-// semanticAnalysisCache.storeResponse(request, response.answer());
+@Bean
+public SemanticCacheStoreAdvisor semanticCacheStoreAdvisor(SemanticAnalysisCache semanticAnalysisCache) {
+    return new SemanticCacheStoreAdvisor(semanticAnalysisCache);
+}
 ```
 
-Uncomment it so the code becomes:
+Then update `SynthesisAgentConfig` so the synthesis client uses the advisor:
 
 ```java
-semanticAnalysisCache.storeResponse(request, response.answer());
+return ChatClient.builder(chatModel)
+        .defaultAdvisors(semanticCacheStoreAdvisor)
+        .defaultAdvisors(AdvisorParams.ENABLE_NATIVE_STRUCTURED_OUTPUT)
+        .defaultSystem(DEFAULT_PROMPT)
+        .build();
+```
+
+Finally, pass the same semantic cache key into the synthesis call:
+
+```java
+.advisors(spec -> spec.param(SemanticCacheAdvisor.CACHE_KEY, request.semanticCacheKey()))
 ```
 
 Why you did this:
 
 - the advisor can only reuse answers that were stored after previous completed runs
 - storing after the full pipeline finishes keeps semantic caching scoped to complete final answers
+- `ChatAnalysisService` stays orchestration-focused and no longer depends directly on `SemanticAnalysisCache`
 
 ## Why This Design Fits a Production-Ready Multi-Agent System
 
@@ -649,9 +588,9 @@ You are done when you understand this flow:
 1. a provider asks `ExternalDataCache` for a value
 2. an exact cache hit skips the provider call
 3. a miss loads the value once and stores it in Redis
-4. the semantic cache advisor checks `SemanticAnalysisCache` before coordinator routing and long-term memory retrieval
+4. the semantic cache advisor checks `SemanticAnalysisCache` before guardrails, coordinator routing, and long-term memory retrieval
 5. a semantic hit returns a synthetic `DIRECT_RESPONSE` payload through the coordinator contract
-6. a semantic miss runs the full pipeline and then stores the final answer for later reuse
+6. a semantic miss runs the full pipeline and `SemanticCacheStoreAdvisor` stores the final answer for later reuse
 
 At that point, your multi-agent system is not only correct.
 

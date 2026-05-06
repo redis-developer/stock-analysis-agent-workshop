@@ -18,6 +18,8 @@ import java.util.stream.Collectors;
 public class LongTermMemoryAdvisor implements BaseAdvisor {
 
     public static final String RETRIEVED_MEMORIES = "long_term_memory_retrieved";
+    public static final String MAX_RETRIEVED_MEMORIES = "max_retrieved_memories";
+    public static final int DEFAULT_MAX_MEMORIES = 10;
     private static final int DEFAULT_ORDER = 100;
     private static final String ANONYMOUS_USER = "anonymous";
 
@@ -66,8 +68,27 @@ public class LongTermMemoryAdvisor implements BaseAdvisor {
     }
 
     private List<String> searchMemories(String query, String userId) {
+        return searchMemories(query, userId, maxMemories);
+    }
+
+    private int resolveMaxMemories(Object rawLimit) {
+        if (rawLimit instanceof Number number) {
+            return Math.max(1, number.intValue());
+        }
+
+        if (rawLimit instanceof String text) {
+            try {
+                return Math.max(1, Integer.parseInt(text.trim()));
+            } catch (NumberFormatException ignored) {
+            }
+        }
+
+        return Math.max(1, maxMemories);
+    }
+
+    private List<String> searchMemories(String query, String userId, int limit) {
         try {
-            MemoryRecordResults response = agentMemoryService.searchLongTermMemory(query, userId, maxMemories);
+            MemoryRecordResults response = agentMemoryService.searchLongTermMemory(query, userId, limit);
             if (response == null || response.getMemories() == null) {
                 return List.of();
             }

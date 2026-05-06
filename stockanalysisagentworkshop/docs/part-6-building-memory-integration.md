@@ -316,7 +316,8 @@ if (!hasConversationHistory(conversationId)) {
     return request;
 }
 
-List<String> memories = searchMemories(userMessage, userId);
+int maxMemories = resolveMaxMemories(request.context().get(MAX_RETRIEVED_MEMORIES));
+List<String> memories = searchMemories(userMessage, userId, maxMemories);
 memoryRepository.setLastRetrievedMemories(memories);
 
 if (memories.isEmpty()) {
@@ -340,6 +341,7 @@ What this code is doing:
 
 - it reads the current conversation and user context
 - it skips retrieval when there is no meaningful session history
+- it honors the per-request retrieved memory limit passed from the chat UI
 - it searches long-term memory using the current user message
 - it stores the retrieved memories for the UI layer
 - it augments the user message with supplemental background memory before the model call runs

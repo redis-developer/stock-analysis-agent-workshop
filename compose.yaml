@@ -51,7 +51,7 @@ services:
     restart: unless-stopped
 
   redis:
-    image: redis/redis-stack-server:latest
+    image: redis:8
     container_name: stock-analysis-agent-redis
     ports:
       - "6378:6379"
@@ -90,6 +90,5 @@ services:
       - "9411:9411"
 
 volumes:
-  ollama-data:
   redis-data:
   redis-insight-data:

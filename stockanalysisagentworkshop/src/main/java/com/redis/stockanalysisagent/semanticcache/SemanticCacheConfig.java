@@ -9,8 +9,14 @@ public class SemanticCacheConfig {
     @Bean
     public SemanticCacheAdvisor semanticCacheAdvisor(SemanticAnalysisCache semanticAnalysisCache) {
         // PART 8 STEP 7:
-        // Keep the semantic cache advisor bean in the semantic-cache package so the
-        // coordinator config can inject it without constructing it inline.
+        // Keep this advisor bean in the semantic-cache package.
         return new SemanticCacheAdvisor(semanticAnalysisCache);
+    }
+
+    @Bean
+    public SemanticCacheStoreAdvisor semanticCacheStoreAdvisor(SemanticAnalysisCache semanticAnalysisCache) {
+        // PART 8 STEP 10:
+        // Store completed synthesis answers through an advisor.
+        return new SemanticCacheStoreAdvisor(semanticAnalysisCache);
     }
 }

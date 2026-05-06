@@ -179,7 +179,7 @@ The change is in `ChatAnalysisService.java`:
 +            CoordinatorAgent.RoutingOutcome outcome = coordinatorAgent.execute(request, conversationId);
 +            enrichWithRoutingDecision(observation, outcome.routingDecision());
 +            enrichWithTokenUsage(observation, outcome.tokenUsage());
-+            observation.lowCardinalityKeyValue(KEY_SEMANTIC_CACHE_HIT, String.valueOf(outcome.fromSemanticCache()));
++            observation.lowCardinalityKeyValue(KEY_SEMANTIC_CACHE_HIT, String.valueOf(outcome.cacheHit()));
 +            return outcome;
 +        } catch (Throwable t) {
 +            observation.error(t);
@@ -230,7 +230,7 @@ Zipkin shows the embedding and LLM spans, but the chat response payload should a
 In `ChatAnalysisService.java`, replace the Part 9 comment in `analyze(...)` with:
 
 ```java
-executionSteps.add(cacheStep(routingOutcome.fromSemanticCache()));
+executionSteps.add(cacheStep(routingOutcome.cacheHit()));
 ```
 
 Then replace the placeholder `cacheStep(...)` body with:
@@ -260,7 +260,7 @@ What this code is doing:
 
 ## 5. Wire Per-Agent Observations
 
-Each specialist agent method gets the same observation wrapper. The change is in `AgentOrchestrationService.java`:
+Each selected specialist agent gets the same observation wrapper. The change is in `AgentOrchestrationService.java`:
 
 ```diff
 +import io.micrometer.observation.Observation;
@@ -292,7 +292,7 @@ Each specialist agent method gets the same observation wrapper. The change is in
      }
 ```
 
-The same pattern is applied to `executeFundamentals`, `executeNews`, and `executeTechnicalAnalysis`. The only difference is the `AgentType` enum value.
+The same pattern is applied to the `FUNDAMENTALS`, `NEWS`, and `TECHNICAL_ANALYSIS` branches. The orchestrator walks through the coordinator's selected agents in order, skipping `SYNTHESIS` until the end.
 
 ### What Shows Up in Zipkin
 
@@ -312,16 +312,16 @@ Each agent now appears as its own `stock-analysis.agent` span:
 | `http post /api/chat` | 16.8s | Root — the HTTP request |
 | `embedding text-embedding-3-small` | 0.9s | Semantic cache check |
 | `stock-analysis.coordinator` | 3.9s | Routing decision (Step 3) |
-| `stock-analysis.agent` [MARKET_DATA] | 2.6s | Per-agent span (Step 5) |
+| `stock-analysis.agent` [MARKET_DATA] | 2.6s | Per-agent span |
+| `stock-analysis.agent` [FUNDAMENTALS] | 5.8s | Per-agent span, can reuse the `MarketSnapshot` if market data already ran |
 | `stock-analysis.agent` [NEWS] | 6.4s | Per-agent span |
 | `stock-analysis.agent` [TECHNICAL_ANALYSIS] | 2.8s | Per-agent span |
-| `stock-analysis.agent` [FUNDAMENTALS] | 5.8s | Per-agent span |
 | `chat gpt-4o` (synthesis) | 3.3s | Final synthesis LLM call |
 | `embedding text-embedding-3-small` | 0.2s | Semantic cache write |
 
 ## 6. Reading a Real Trace
 
-This is a full analysis of IBM, 16.8 seconds end to end. It starts with a semantic cache embedding check (854ms) — a cache miss, so we proceed into the coordinator flow. The coordinator takes 3.9 seconds and decides to dispatch all 4 agents with synthesis, spending 1,417 tokens on that routing decision. Then three agents — Market Data, News, and Technical Analysis — all kick off at exactly the same offset (+4.9s), which is why you see their bars overlapping in the waterfall: that's real parallelism, not a diagram. Market Data finishes in 2.6s, Technical Analysis in 2.8s, but News takes 6.4s — it's the bottleneck among the parallel group. Fundamentals starts *later* (+7.5s) because it depends on the Market Data result — you can see the gap. It then runs for 5.8 seconds including an SEC EDGAR lookup. Once all four agents complete, the Synthesis agent combines their outputs in a final 3.3s LLM call (873 tokens). The trace ends with a cache write embedding (170ms) so the next similar question gets a cache hit. On a cache hit, the advisor would return before long-term memory retrieval or coordinator routing. Total cost across the whole request: roughly 8,400 tokens spread across 6 LLM calls, and you can see exactly which agent consumed what.
+This is a full analysis of IBM, 16.8 seconds end to end. It starts with a semantic cache embedding check (854ms). If `cacheHit` is true, the coordinator can reuse the cached routing response. If `guardrailHit` is true, `guardrailRoute` shows which guardrail route blocked or redirected the request. Otherwise, the coordinator takes 3.9 seconds, selects the specialist agents, and spends 1,417 tokens on that routing decision. The final app runs the selected specialists sequentially in coordinator order. That means the Zipkin waterfall should show one `stock-analysis.agent` span finishing before the next selected specialist starts. If Market Data runs before Fundamentals, the orchestration service preserves the `MarketSnapshot` and passes it into the Fundamentals agent. Once the selected specialists complete, the Synthesis agent combines their outputs in a final 3.3s LLM call (873 tokens). The trace ends with a cache write embedding (170ms) so the next similar question can get a semantic cache hit. Total cost across the whole request is roughly 8,400 tokens spread across the coordinator, specialist, and synthesis LLM calls, and you can see exactly which agent consumed what.
 
 ## Navigating the Zipkin UI
 

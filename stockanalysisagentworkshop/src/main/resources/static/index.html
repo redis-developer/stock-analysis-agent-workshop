@@ -33,6 +33,21 @@
                     <span class="identity-label">Session</span>
                     <span id="session-id-value" class="identity-value">Loading...</span>
                 </div>
+                <div class="identity-item">
+                    <label class="identity-label" for="retrieved-memories-limit-input">Memory count</label>
+                    <input
+                        id="retrieved-memories-limit-input"
+                        class="identity-input identity-input--numeric"
+                        type="number"
+                        min="1"
+                        max="20"
+                        step="1"
+                        inputmode="numeric"
+                        autocomplete="off"
+                        spellcheck="false"
+                        value="10"
+                    >
+                </div>
             </div>
             <button id="clear-chat-button" class="btn btn-secondary" type="button">Clear chat</button>
         </div>

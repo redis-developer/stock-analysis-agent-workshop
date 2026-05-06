@@ -2,6 +2,7 @@ package com.redis.stockanalysisagent.agent.coordinatoragent;
 
 import com.redis.stockanalysisagent.memory.LongTermMemoryAdvisor;
 import com.redis.stockanalysisagent.semanticcache.SemanticCacheAdvisor;
+import com.redis.stockanalysisagent.semanticguardrail.SemanticGuardrailAdvisor;
 import org.springframework.ai.chat.client.AdvisorParams;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.client.advisor.MessageChatMemoryAdvisor;
@@ -23,13 +24,21 @@ public class CoordinatorRoutingAgentConfig {
             ChatModel chatModel,
             ChatMemory chatMemory,
             SemanticCacheAdvisor semanticCacheAdvisor,
+            SemanticGuardrailAdvisor semanticGuardrailAdvisor,
             LongTermMemoryAdvisor longTermMemoryAdvisor
     ) {
         // PART 4 STEP 1B:
-        // Replace the return statement below with the snippet from the Part 4 guide.
+        // Replace DEFAULT_PROMPT above with the coordinator prompt from the Part 4 guide.
         // PART 8 STEP 8:
-        // After Part 4 is complete, add semanticCacheAdvisor before longTermMemoryAdvisor
-        // and keep native structured output enabled.
-        return ChatClient.builder(chatModel).build();
+        // SemanticCacheAdvisor runs before SemanticGuardrailAdvisor.
+        // Both run before LongTermMemoryAdvisor, and native structured output stays enabled.
+        return ChatClient.builder(chatModel)
+                .defaultAdvisors(MessageChatMemoryAdvisor.builder(chatMemory).build())
+                .defaultAdvisors(semanticCacheAdvisor)
+                .defaultAdvisors(semanticGuardrailAdvisor)
+                .defaultAdvisors(longTermMemoryAdvisor)
+                .defaultAdvisors(AdvisorParams.ENABLE_NATIVE_STRUCTURED_OUTPUT)
+                .defaultSystem(DEFAULT_PROMPT)
+                .build();
     }
 }

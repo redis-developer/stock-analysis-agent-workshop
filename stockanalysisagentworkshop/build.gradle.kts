@@ -34,6 +34,12 @@ dependencies {
             classifier = "osx-x86_64"
         }
     }
+    // Observability
+    implementation("org.springframework.boot:spring-boot-starter-actuator")
+    implementation("org.springframework.boot:spring-boot-micrometer-tracing-opentelemetry")
+    implementation("io.micrometer:micrometer-tracing-bridge-otel")
+    implementation("org.springframework.boot:spring-boot-zipkin")
+    implementation("io.opentelemetry:opentelemetry-exporter-zipkin")
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }

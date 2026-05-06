@@ -46,7 +46,7 @@ From the repository root, run:
 
 Then open:
 
-- [http://localhost:8080](http://localhost:8080)
+- [http://localhost:8081](http://localhost:8081)
 
 If you are already inside this module directory, you can also run:
 
@@ -59,7 +59,7 @@ If you are already inside this module directory, you can also run:
 For the full local experience, start the supporting services first:
 
 ```bash
-docker compose up -d redis agent-memory-server redis-insight
+docker compose up -d redis agent-memory-server agent-memory-task-worker redis-insight
 ```
 
 If you also want tracing:
@@ -68,15 +68,11 @@ If you also want tracing:
 docker compose up -d zipkin
 ```
 
-If you want to run the finalized app in Docker too:
-
-```bash
-docker compose up -d stock-analysis-agent
-```
-
 These services are defined in:
 
 - [compose.yaml](/Users/raphaeldelio/Documents/GitHub/stock-analysis-agent/compose.yaml)
+
+The Redis service uses Redis 8. Redis Stack is not required because Redis 8 includes the modules used by the cache, semantic cache, and Agent Memory Server data path.
 
 ## Local Configuration
 
@@ -104,36 +100,7 @@ Typical things you will need:
 
 The application loads `.env` and `application-local.*` automatically when those files exist in either the repository root or the module directory.
 
-## Docker
-
-Build and run the finalized application with Compose:
-
-```bash
-docker compose up -d stock-analysis-agent
-```
-
-Or build the image manually from the repository root:
-
-```bash
-docker build -f stockanalysisagent/Dockerfile -t stock-analysis-agent .
-```
-
-Then run it with the same environment values the app already supports:
-
-```bash
-docker run --rm -p 8080:8080 \
-  -e OPENAI_API_KEY=YOUR_OPENAI_KEY \
-  -e TWELVE_DATA_API_KEY=YOUR_TWELVE_DATA_API_KEY \
-  -e TAVILY_API_KEY=YOUR_TAVILY_API_KEY \
-  -e SEC_USER_AGENT="stock-analysis-agent your-email@example.com" \
-  -e REDIS_HOST=host.docker.internal \
-  -e AGENT_MEMORY_SERVER_URL=http://host.docker.internal:8000 \
-  stock-analysis-agent
-```
-
-If you are already running the supporting services from [compose.yaml](/Users/raphaeldelio/Documents/GitHub/stock-analysis-agent/compose.yaml), this will expose the app on:
-
-- [http://localhost:8080](http://localhost:8080)
+Semantic cache and embeddings are enabled by default. To disable semantic cache locally, set `SEMANTIC_CACHE_ENABLED=false`.
 
 ## Useful Commands
 

@@ -92,9 +92,15 @@ stock-analysis:
     user-agent: ${SEC_USER_AGENT:stock-analysis-agent-workshop workshop@example.com}
   semantic-cache:
     enabled: ${SEMANTIC_CACHE_ENABLED:true}
-    distance-threshold: 0.12
+    distance-threshold: 0.2
     ttl-seconds: 300
     name: stock-analysis-semantic-cache
+    embedding-model-name: ${spring.ai.openai.embedding.options.model:text-embedding-3-small}
+    embedding-dimensions: 1536
+  semantic-guardrail:
+    enabled: ${SEMANTIC_GUARDRAIL_ENABLED:true}
+    distance-threshold: 0.5
+    name: stock-analysis-semantic-guardrail
     embedding-model-name: ${spring.ai.openai.embedding.options.model:text-embedding-3-small}
     embedding-dimensions: 1536
 

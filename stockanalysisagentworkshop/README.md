@@ -90,6 +90,8 @@ The goal of the workshop is to help you understand:
 
 That means some parts of the system are already implemented for you, while selected files are left incomplete so you can build the pieces that matter most.
 
+The workshop code intentionally contains `PART TODO` and `PART X STEP Y` markers. Those are learner checkpoints, not broken code comments to remove up front. When a part tells you to edit a file, paste the snippet from that part into the matching marker and continue through the sequence.
+
 ## Workshop Parts
 
 ### Foundations

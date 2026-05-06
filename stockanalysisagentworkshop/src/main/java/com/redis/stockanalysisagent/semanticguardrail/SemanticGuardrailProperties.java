@@ -1,16 +1,15 @@
-package com.redis.stockanalysisagent.semanticcache;
+package com.redis.stockanalysisagent.semanticguardrail;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
 
 @Component
-@ConfigurationProperties(prefix = "stock-analysis.semantic-cache")
-public class SemanticCacheProperties {
+@ConfigurationProperties(prefix = "stock-analysis.semantic-guardrail")
+public class SemanticGuardrailProperties {
 
     private boolean enabled = true;
-    private float distanceThreshold = 0.2f;
-    private int ttlSeconds = 300;
-    private String name = "stock-analysis-semantic-cache";
+    private float distanceThreshold = 0.5f;
+    private String name = "stock-analysis-semantic-guardrail";
     private String embeddingModelName = "text-embedding-3-small";
     private int embeddingDimensions = 1536;
 
@@ -28,14 +27,6 @@ public class SemanticCacheProperties {
 
     public void setDistanceThreshold(float distanceThreshold) {
         this.distanceThreshold = distanceThreshold;
-    }
-
-    public int getTtlSeconds() {
-        return ttlSeconds;
-    }
-
-    public void setTtlSeconds(int ttlSeconds) {
-        this.ttlSeconds = ttlSeconds;
     }
 
     public String getName() {

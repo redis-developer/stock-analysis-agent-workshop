@@ -20,6 +20,8 @@ public class CoordinatorAgent {
     }
 
     public ExecutionPlan createPlan(RoutingDecision routingDecision) {
+        // PART 4 STEP 3A:
+        // This method should match the createPlan(...) snippet from the Part 4 guide.
         List<AgentType> selectedAgents = new ArrayList<>(new LinkedHashSet<>(selectedSpecialists(routingDecision.getSelectedAgents())));
         if (selectedAgents.isEmpty()) {
             throw new IllegalStateException("Coordinator returned no specialist agents.");
@@ -32,19 +34,40 @@ public class CoordinatorAgent {
         );
     }
 
-    public RoutingOutcome execute(String userMessage, String conversationId) {
-        CoordinatorRoutingAgent.RoutingResult routingResult = coordinatorRoutingAgent.route(userMessage, conversationId);
+    public RoutingOutcome execute(
+            String userMessage,
+            String conversationId,
+            Integer retrievedMemoriesLimit,
+            String semanticCacheKey
+    ) {
+        // PART 4 STEP 3B:
+        // This method should match the execute(...) snippet from the Part 4 guide.
+        CoordinatorRoutingAgent.RoutingResult routingResult = coordinatorRoutingAgent.route(
+                userMessage,
+                conversationId,
+                retrievedMemoriesLimit,
+                semanticCacheKey
+        );
         RoutingDecision routingDecision = routingResult.routingDecision();
         if (routingDecision.getFinishReason() == RoutingDecision.FinishReason.NEEDS_MORE_INPUT) {
             routingDecision.setConversationId(conversationId);
         }
-        return new RoutingOutcome(routingDecision, routingResult.tokenUsage(), routingResult.fromSemanticCache());
+        return new RoutingOutcome(
+                routingDecision,
+                routingResult.tokenUsage(),
+                routingResult.cacheHit(),
+                routingResult.guardrailHit(),
+                routingResult.guardrailRoute()
+        );
     }
 
-    public AnalysisRequest toAnalysisRequest(RoutingDecision routingDecision) {
+    public AnalysisRequest toAnalysisRequest(RoutingDecision routingDecision, String semanticCacheKey) {
+        // PART 4 STEP 3C:
+        // This method should match the toAnalysisRequest(...) snippet from the Part 4 guide.
         return new AnalysisRequest(
                 routingDecision.getResolvedTicker().trim().toUpperCase(),
-                routingDecision.getResolvedQuestion().trim()
+                routingDecision.getResolvedQuestion().trim(),
+                semanticCacheKey == null ? "" : semanticCacheKey.trim()
         );
     }
 
@@ -59,7 +82,9 @@ public class CoordinatorAgent {
     public record RoutingOutcome(
             RoutingDecision routingDecision,
             TokenUsageSummary tokenUsage,
-            boolean fromSemanticCache
+            boolean cacheHit,
+            boolean guardrailHit,
+            String guardrailRoute
     ) {
     }
 }

@@ -32,13 +32,19 @@ public class ChatService {
         this.chatAnalysisService = chatAnalysisService;
     }
 
-    public ChatTurn chat(String userId, String sessionId, String message) {
+    public ChatTurn chat(String userId, String sessionId, String message, Integer retrievedMemoriesLimit) {
         String conversationId = AmsChatMemoryRepository.createConversationId(userId, sessionId);
         String normalizedMessage = message == null ? "" : message.trim();
+        List<ChatExecutionStep> executionSteps = new ArrayList<>();
         memoryRepository.setLastRetrievedMemories(List.of());
 
-        ChatAnalysisService.AnalysisTurn analysisTurn = chatAnalysisService.analyze(normalizedMessage, conversationId);
-        List<ChatExecutionStep> executionSteps = new ArrayList<>(analysisTurn.executionSteps());
+        ChatAnalysisService.AnalysisTurn analysisTurn = chatAnalysisService.analyze(
+                normalizedMessage,
+                conversationId,
+                retrievedMemoriesLimit,
+                normalizedMessage
+        );
+        executionSteps.addAll(analysisTurn.executionSteps());
 
         long saveTurnStartedAt = System.nanoTime();
         boolean saveSucceeded = saveTurn(conversationId, normalizedMessage, analysisTurn.response());
@@ -55,6 +61,7 @@ public class ChatService {
                 analysisTurn.response(),
                 memoryRepository.getLastRetrievedMemories(),
                 analysisTurn.fromSemanticCache(),
+                analysisTurn.fromSemanticGuardrail(),
                 analysisTurn.tokenUsage(),
                 List.copyOf(executionSteps)
         );
@@ -104,6 +111,7 @@ public class ChatService {
             String response,
             List<String> retrievedMemories,
             boolean fromSemanticCache,
+            boolean fromSemanticGuardrail,
             TokenUsageSummary tokenUsage,
             List<ChatExecutionStep> executionSteps
     ) {

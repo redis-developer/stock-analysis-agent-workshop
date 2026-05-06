@@ -284,7 +284,7 @@ In the current configuration, the semantic cache has:
 - embedding model: `text-embedding-3-small`
 - embedding dimensions: `1536`
 - TTL: `300` seconds
-- distance threshold: `0.12`
+- distance threshold: `0.2`
 
 Those settings reflect an important idea:
 
